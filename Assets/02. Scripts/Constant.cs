@@ -38,5 +38,9 @@ public static class Constant
         RockSign,   // 검지, 소지
         Three,      // 검지, 중지, 약지
         OpenHand,   // 손 전체
+        Land,
+        Wind,
+        Fire,
+        Water
     }
 }
