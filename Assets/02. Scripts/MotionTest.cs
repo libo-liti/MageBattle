@@ -27,6 +27,9 @@ public class MotionTest : MonoBehaviour
     private HandPose _pose = HandPose.Unknown;
 
     private CasterContext _player = new CasterContext();
+    private AICaster _ai = new AICaster();
+
+    private BattleState _prevPlayerState = BattleState.Idle;
     
     private void Update()
     {
@@ -79,6 +82,12 @@ public class MotionTest : MonoBehaviour
             _pose = HandPose.Unknown;
 
         UpdateCaster(_player, _pose);
+        
+        if(_prevPlayerState == BattleState.Idle && _player.state == BattleState.ElementCharging)
+            _ai.StartRound();
+        _prevPlayerState = _player.state;
+        
+        _ai.Update(Time.deltaTime);
     }
 
     private void UpdateCaster(CasterContext ctx, HandPose pose)
@@ -271,7 +280,7 @@ public class MotionTest : MonoBehaviour
     private void OnGUI()
     {
         float boxX = 10, boxY = 10;
-        float boxW = 300, boxH = 300;
+        float boxW = 300, boxH = 400;
         GUI.Box(new Rect(boxX, boxY, boxW, boxH), "Hand Debug");
 
         float x = boxX + 10;
@@ -307,5 +316,20 @@ public class MotionTest : MonoBehaviour
         y += lineHeight;
         
         GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"TotalTime : {_player.totalTime:F2}/10.00s");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"--- AI ---");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"AI State : {_ai.ctx.state}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"AI Element : {_ai.ctx.confirmedElement}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"AI Form : {_ai.ctx.confirmedForm}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"AI Time : {_ai.ctx.totalTime:F2}");
     }
 }
