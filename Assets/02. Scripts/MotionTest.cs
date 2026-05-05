@@ -3,41 +3,11 @@ using Pose.DetailedVisualizer;
 using UnityEngine;
 using static Constant;
 
-struct FingerStates
-{
-    public readonly bool index, middle, ring, pinky;
-    public bool OnlyIndex => index && !middle && !ring && !pinky;
-    public bool AllExtended => index && middle && ring && pinky;
-    public bool AllFolded => !index && !middle && !ring && !pinky;
-    
-    public FingerStates(bool index, bool middle, bool ring, bool pinky)
-    {
-        this.index = index;
-        this.middle = middle;
-        this.ring = ring;
-        this.pinky = pinky;
-    }
-}
-
-struct FingerTouches
-{
-    private readonly bool _index, _middle, _ring, _pinky, _indexPip;
-    public bool OnlyIndexTip => _index && !_middle && !_ring && !_pinky && !_indexPip;
-    public bool OnlyIndexPip => !_index && !_middle && !_ring && !_pinky && _indexPip;
-    public bool AllTouches => _index && _middle && _ring && _pinky;
-
-    public FingerTouches(bool index, bool middle, bool ring, bool pinky, bool indexPip)
-    {
-        _index = index;
-        _middle = middle;
-        _ring = ring;
-        _pinky = pinky;
-        _indexPip = indexPip;
-    }
-}
-
 public class MotionTest : MonoBehaviour
 {
+    private const float REQUIRED_HOLD = 1.0f;
+    private const float TOTAL_DURATION = 10.0f;
+    
     [SerializeField] private HandVisualizer hand;
     [SerializeField] private GameObject leftHand;
     [SerializeField] private GameObject rightHand;
@@ -55,6 +25,8 @@ public class MotionTest : MonoBehaviour
     private int _rightConsecutiveFalse = 0;
 
     private HandPose _pose = HandPose.Unknown;
+
+    private CasterContext _player = new CasterContext();
     
     private void Update()
     {
@@ -105,6 +77,117 @@ public class MotionTest : MonoBehaviour
         }
         else
             _pose = HandPose.Unknown;
+
+        UpdateCaster(_player, _pose);
+    }
+
+    private void UpdateCaster(CasterContext ctx, HandPose pose)
+    {
+        switch (ctx.state)
+        {
+            case BattleState.Idle:
+                if (IsElement(pose))
+                {
+                    ctx.state = BattleState.ElementCharging;
+                    ctx.chargingElement = pose;
+                    ctx.holdTime = 0f;
+                    ctx.totalTime = 0;
+                }
+                break;
+            case BattleState.ElementCharging:
+                ctx.totalTime += Time.deltaTime;
+
+                if (ctx.totalTime >= TOTAL_DURATION)
+                {
+                    ctx.state = BattleState.Idle;
+                    ctx.holdTime = 0f;
+                    ctx.totalTime = 0f;
+                    ctx.chargingElement = HandPose.Unknown;
+                    break;
+                }
+
+                if (IsElement(pose))
+                {
+                    if (pose == ctx.chargingElement)
+                    {
+                        ctx.holdTime += Time.deltaTime;
+                        if (ctx.holdTime >= REQUIRED_HOLD)
+                        {
+                            ctx.confirmedElement = ctx.chargingElement;
+                            ctx.state = BattleState.FormCharging;
+                            ctx.chargingForm = HandPose.Unknown;
+                            ctx.holdTime = 0f;
+                        }
+                    }
+                    else
+                    {
+                        ctx.chargingElement = pose;
+                        ctx.holdTime = 0;
+                    }
+                }
+                break;
+            case BattleState.FormCharging:
+                ctx.totalTime += Time.deltaTime;
+
+                if (ctx.totalTime >= TOTAL_DURATION)
+                {
+                    ctx.state = BattleState.Idle;
+                    ctx.chargingElement = HandPose.Unknown;
+                    ctx.chargingForm = HandPose.Unknown;
+                    ctx.holdTime = 0f;
+                    ctx.totalTime = 0f;
+                    break;
+                }
+
+                if (IsElement(pose) && pose != ctx.confirmedElement)
+                {
+                    ctx.state = BattleState.ElementCharging;
+                    ctx.chargingElement = pose;
+                    ctx.confirmedElement = HandPose.Unknown;
+                    ctx.chargingForm = HandPose.Unknown;
+                    ctx.holdTime = 0f;
+                    break;
+                }
+                
+                if (IsForm(pose))
+                {
+                    if (ctx.chargingForm == HandPose.Unknown)
+                    {
+                        ctx.chargingForm = pose;
+                        ctx.holdTime = 0;
+                    }
+                    else if (pose == ctx.chargingForm)
+                    {
+                        ctx.holdTime += Time.deltaTime;
+                        if (ctx.holdTime >= REQUIRED_HOLD)
+                        {
+                            ctx.confirmedForm = pose;
+                            ctx.state = BattleState.Casting;
+                            ctx.holdTime = 0f;
+                        }
+                    }
+                    else
+                    {
+                        ctx.chargingForm = pose;
+                        ctx.holdTime = 0f;
+                    }
+                }
+                else
+                {
+                    ctx.chargingForm = HandPose.Unknown;
+                    ctx.holdTime = 0f;
+                }
+                break;
+            case BattleState.Casting:
+                Debug.Log($"마법 발동! {ctx.confirmedElement} + {ctx.confirmedForm}");
+                ctx.state = BattleState.Idle;
+                ctx.confirmedElement = HandPose.Unknown;
+                ctx.confirmedForm = HandPose.Unknown;
+                ctx.chargingForm = HandPose.Unknown;
+                ctx.totalTime = 0f;
+                ctx.holdTime = 0f;
+                break;
+        }
     }
 
     private HandPose DetectHandPose(IReadOnlyList<Vector3> leftPos, IReadOnlyList<Vector3> rightPos)
@@ -124,6 +207,13 @@ public class MotionTest : MonoBehaviour
         if (left.AllFolded && touches.OnlyIndexPip) return HandPose.Land;
         if (left.AllExtended && touches.OnlyIndexTip) return HandPose.Water;
         if (left.OnlyIndex && touches.OnlyIndexTip) return HandPose.Fire;
+
+        if (touches.NoneTouched)
+        {
+            if (left.AllFolded) return HandPose.Attack;
+            if (left.AllExtended) return HandPose.Defense;
+            if (left.ThreeFingers) return HandPose.Special;
+        }
         
         return HandPose.Unknown;
     }
@@ -167,11 +257,21 @@ public class MotionTest : MonoBehaviour
             Vector2.Distance(leftPos[(int)HandJoint.IndexPip], rightPos[(int)HandJoint.IndexPip]) < 0.1f
         );
     }
+
+    private bool IsElement(HandPose pose)
+    {
+        return pose == HandPose.Fire || pose == HandPose.Water || pose == HandPose.Wind || pose == HandPose.Land;
+    }
+
+    private bool IsForm(HandPose pose)
+    {
+        return pose == HandPose.Attack || pose == HandPose.Defense || pose == HandPose.Special;
+    }
     
     private void OnGUI()
     {
         float boxX = 10, boxY = 10;
-        float boxW = 300, boxH = 200;
+        float boxW = 300, boxH = 300;
         GUI.Box(new Rect(boxX, boxY, boxW, boxH), "Hand Debug");
 
         float x = boxX + 10;
@@ -192,5 +292,20 @@ public class MotionTest : MonoBehaviour
         y += lineHeight;
 
         GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Pose : {_pose}");
+        y += lineHeight;
+
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"State : {_player.state}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Hold : {_player.holdTime:F2} / 1.00s");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Element : {_player.confirmedElement}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Form : {_player.confirmedForm}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"TotalTime : {_player.totalTime:F2}/10.00s");
     }
 }

@@ -30,17 +30,21 @@ public static class Constant
     public enum HandPose
     {
         Unknown,
-        Fist,       // 주먹
-        Pointing,   // 검지만
-        ThumbUp,    // 엄지만
-        Pinky,       // 소지
-        Victory,    // V포즈
-        RockSign,   // 검지, 소지
-        Three,      // 검지, 중지, 약지
-        OpenHand,   // 손 전체
-        Land,
-        Wind,
-        Fire,
-        Water
+        // 한 손 포즈 (사용 안할수도 있지만 혹시나 해서 보관)
+        Fist, Pointing, ThumbUp, Pinky, Victory, RockSign, Three, OpenHand,   
+        
+        // 원소
+        Land, Wind, Fire, Water,
+        
+        // 형태
+        Attack, Defense, Special
+    }
+
+    public enum BattleState
+    {
+        Idle,
+        ElementCharging,
+        FormCharging,
+        Casting
     }
 }
