@@ -89,9 +89,12 @@ public class MotionTest : MonoBehaviour
             _pose = HandPose.Unknown;
 
         UpdateCaster(_player, _pose);
-        
-        if(_prevPlayerState == BattleState.Idle && _player.state == BattleState.ElementCharging)
+
+        if (_prevPlayerState == BattleState.Idle && _player.state == BattleState.ElementCharging)
+        {
             _ai.StartRound();
+            _roundManager.StartRound();
+        }
         _prevPlayerState = _player.state;
         
         _ai.Update(Time.deltaTime);
@@ -332,5 +335,20 @@ public class MotionTest : MonoBehaviour
         y += lineHeight;
         
         GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"AI Time : {_ai.ctx.totalTime:F2}");
+        y += lineHeight + 5;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"--- HP ---");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Player HP: {_roundManager.PlayerHp}");
+        y += lineHeight;
+        
+        GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"AI HP: {_roundManager.AiHp}");
+        
+        if (_roundManager.GameOver)
+        {
+            y += lineHeight;
+            GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"=== GAME OVER ===");
+        }
     }
 }
