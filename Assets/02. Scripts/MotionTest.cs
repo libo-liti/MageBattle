@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Pose.DetailedVisualizer;
 using UnityEngine;
@@ -28,9 +29,15 @@ public class MotionTest : MonoBehaviour
 
     private CasterContext _player = new CasterContext();
     private AICaster _ai = new AICaster();
+    private RoundManager _roundManager;
 
     private BattleState _prevPlayerState = BattleState.Idle;
-    
+
+    private void Awake()
+    {
+        _roundManager = new RoundManager(_player, _ai);
+    }
+
     private void Update()
     {
         var leftRaw = hand.IsLeftHandDetected();
@@ -88,6 +95,7 @@ public class MotionTest : MonoBehaviour
         _prevPlayerState = _player.state;
         
         _ai.Update(Time.deltaTime);
+        _roundManager.Update();
     }
 
     private void UpdateCaster(CasterContext ctx, HandPose pose)
@@ -188,13 +196,6 @@ public class MotionTest : MonoBehaviour
                 }
                 break;
             case BattleState.Casting:
-                Debug.Log($"마법 발동! {ctx.confirmedElement} + {ctx.confirmedForm}");
-                ctx.state = BattleState.Idle;
-                ctx.confirmedElement = HandPose.Unknown;
-                ctx.confirmedForm = HandPose.Unknown;
-                ctx.chargingForm = HandPose.Unknown;
-                ctx.totalTime = 0f;
-                ctx.holdTime = 0f;
                 break;
         }
     }

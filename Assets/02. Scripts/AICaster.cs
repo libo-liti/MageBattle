@@ -61,4 +61,16 @@ public class AICaster
         HandPose[] forms = { HandPose.Attack, HandPose.Defense, HandPose.Special };
         return forms[Random.Range(0, 3)];
     }
+
+    public void Reset()
+    {
+        ctx.state = BattleState.Idle;
+        ctx.chargingElement = HandPose.Unknown;
+        ctx.chargingForm = HandPose.Unknown;
+        ctx.confirmedElement = HandPose.Unknown;
+        ctx.confirmedForm = HandPose.Unknown;
+        ctx.totalTime = 0;
+        ctx.holdTime = 0;
+        _roundActive = false;
+    }
 }
