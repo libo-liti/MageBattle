@@ -18,6 +18,7 @@ public class MotionTest : MonoBehaviour
     private float _wristDistance;
     
     public int falseFrameNeeded = 20;
+    private bool _showDebug = true;
 
     private bool _leftStable = false;
     private int _leftConsecutiveFalse = 0;
@@ -99,6 +100,9 @@ public class MotionTest : MonoBehaviour
         
         _ai.Update(Time.deltaTime);
         _roundManager.Update();
+
+        if (Input.GetKeyDown(KeyCode.F1))
+            _showDebug = !_showDebug;
     }
 
     private void UpdateCaster(CasterContext ctx, HandPose pose)
@@ -280,13 +284,47 @@ public class MotionTest : MonoBehaviour
     {
         return pose == HandPose.Attack || pose == HandPose.Defense || pose == HandPose.Special;
     }
+
+    private void DrawMinimalUI()
+    {
+        GUIStyle bigStyle = new GUIStyle(GUI.skin.label);
+        bigStyle.fontSize = 24;
+        
+        GUI.Label(new Rect(20, 20, 200, 40), $"HP : {_roundManager.PlayerHp}", bigStyle);
+        
+        GUI.Label(new Rect(Screen.width - 220, 20, 200, 40), $"AI : {_roundManager.AiHp}", bigStyle);
+
+        string stateText = "";
+        switch (_player.state)
+        {
+            case BattleState.ElementCharging:
+                stateText = $"원소 : {_player.chargingElement}";
+                break;
+            case BattleState.FormCharging:
+                stateText = $"{_player.confirmedElement} + 형태 : {_player.chargingForm}";
+                break;
+            case BattleState.Casting:
+                stateText = "발동 중...";
+                break;
+        }
+        GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height - 60, 200, 40), stateText, bigStyle);
+
+        if (_roundManager.GameOver)
+        {
+            GUIStyle hugeStyle = new GUIStyle(GUI.skin.label);
+            hugeStyle.fontSize = 60;
+            hugeStyle.alignment = TextAnchor.MiddleCenter;
+            string result = _roundManager.PlayerHp <= 0 ? "패배..." : "승리!";
+            GUI.Label(new Rect(0, Screen.height / 2 - 40, Screen.width, 80), result, hugeStyle);
+        }
+    }
     
-    private void OnGUI()
+    private void DrawFullDebug()
     {
         float boxX = 10, boxY = 10;
         float boxW = 300, boxH = 400;
         GUI.Box(new Rect(boxX, boxY, boxW, boxH), "Hand Debug");
-
+    
         float x = boxX + 10;
         float y = boxY + 25;
         float lineHeight = 22;
@@ -303,10 +341,10 @@ public class MotionTest : MonoBehaviour
         
         GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Stable : L={_leftStable} R={_rightStable}");
         y += lineHeight;
-
+    
         GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"Pose : {_pose}");
         y += lineHeight;
-
+    
         GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"State : {_player.state}");
         y += lineHeight;
         
@@ -350,5 +388,14 @@ public class MotionTest : MonoBehaviour
             y += lineHeight;
             GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"=== GAME OVER ===");
         }
+    }
+
+    private void OnGUI()
+    {
+        if(_showDebug)
+            DrawFullDebug();
+        else
+            DrawMinimalUI();
+
     }
 }
