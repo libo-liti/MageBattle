@@ -20,6 +20,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI resultText;
     [SerializeField] private TextMeshProUGUI subText;
     [SerializeField] private TextMeshProUGUI statValueText;
+
+    [Header("UI Controller")]
+    [SerializeField] private GameUIController uiController;
     
     private bool _showDebug = true;
     
@@ -31,6 +34,7 @@ public class GameManager : MonoBehaviour
     {
         _recognizer = new HandRecognizer(hand, leftHand, rightHand);
         _battle = new BattleManager();
+        SubscribeToBattle();
     }
 
     private void Start()
@@ -44,6 +48,8 @@ public class GameManager : MonoBehaviour
         {
             _recognizer.Update();
             _battle.Update(_recognizer.CurrentPose, Time.deltaTime);
+            
+            uiController.Refresh(_battle);
             
             if(_battle.RoundManager.GameOver)
                 ShowGameOver();
@@ -68,7 +74,9 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(true);
         gameOverPanel.SetActive(false);
 
+        UnsubscribeFromBattle();
         _battle = new BattleManager();
+        SubscribeToBattle();
     }
 
     public void ShowGameOver()
@@ -81,7 +89,23 @@ public class GameManager : MonoBehaviour
         subText.text = playerWon ? "견습 마법사를 격파했습니다." : "다음에 다시 도전해보세요";
         statValueText.text = $"{_battle.RoundManager.PlayerHp} / 100";
     }
-    
+
+    private void SubscribeToBattle()
+    {
+        _battle.RoundManager.OnRoundResolved += uiController.ShowToast;
+    }
+
+    private void UnsubscribeFromBattle()
+    {
+        if (_battle != null)
+            _battle.RoundManager.OnRoundResolved -= uiController.ShowToast;
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeFromBattle();
+    }
+
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
     {
         StartGame();
