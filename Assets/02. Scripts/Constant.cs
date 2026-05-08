@@ -2,6 +2,8 @@ using UnityEngine;
 
 public static class Constant
 {
+    public enum GameState { MainMenu, Playing, GameOver }
+    
     public enum HandJoint
     {
         Wrist,           // 0 (Body wrist position)
