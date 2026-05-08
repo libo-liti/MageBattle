@@ -1,32 +1,131 @@
+using System;
 using Pose.DetailedVisualizer;
+using TMPro;
 using UnityEngine;
 using static Constant;
 
 public class GameManager : MonoBehaviour
 {
+    [Header("Hand Tracking")]
     [SerializeField] private HandVisualizer hand;
     [SerializeField] private GameObject leftHand;
     [SerializeField] private GameObject rightHand;
 
+    [Header("UI Panels")]
+    [SerializeField] private GameObject mainMenuPanel;
+    [SerializeField] private GameObject gamePanel;
+    [SerializeField] private GameObject gameOverPanel;
+
+    [Header("Result UI")]
+    [SerializeField] private TextMeshProUGUI resultText;
+    [SerializeField] private TextMeshProUGUI subText;
+    [SerializeField] private TextMeshProUGUI statValueText;
+
+    [Header("UI Controller")]
+    [SerializeField] private GameUIController uiController;
+    
     private bool _showDebug = true;
     
     private HandRecognizer _recognizer;
     private BattleManager _battle;
+    private GameState _state = GameState.MainMenu;
     
     private void Awake()
     {
         _recognizer = new HandRecognizer(hand, leftHand, rightHand);
         _battle = new BattleManager();
+        SubscribeToBattle();
+    }
+
+    private void Start()
+    {
+        ShowMainMenu();
     }
 
     private void Update()
     {
-        _recognizer.Update();
-        _battle.Update(_recognizer.CurrentPose, Time.deltaTime);
+        if (_state == GameState.Playing)
+        {
+            _recognizer.Update();
+            _battle.Update(_recognizer.CurrentPose, Time.deltaTime);
+            
+            uiController.Refresh(_battle);
+            
+            if(_battle.RoundManager.GameOver)
+                ShowGameOver();
+        }
         
         if (Input.GetKeyDown(KeyCode.F1))
             _showDebug = !_showDebug;
     }
+
+    public void ShowMainMenu()
+    {
+        _state = GameState.MainMenu;
+        mainMenuPanel.SetActive(true);
+        gamePanel.SetActive(false);
+        gameOverPanel.SetActive(false);
+    }
+
+    public void StartGame()
+    {
+        _state = GameState.Playing;
+        mainMenuPanel.SetActive(false);
+        gamePanel.SetActive(true);
+        gameOverPanel.SetActive(false);
+
+        UnsubscribeFromBattle();
+        _battle = new BattleManager();
+        SubscribeToBattle();
+    }
+
+    public void ShowGameOver()
+    {
+        _state = GameState.GameOver;
+        gameOverPanel.SetActive(true);
+
+        bool playerWon = _battle.RoundManager.AiHp <= 0;
+        resultText.text = playerWon ? "승리!" : "패배...";
+        subText.text = playerWon ? "견습 마법사를 격파했습니다." : "다음에 다시 도전해보세요";
+        statValueText.text = $"{_battle.RoundManager.PlayerHp} / 100";
+    }
+
+    private void SubscribeToBattle()
+    {
+        _battle.RoundManager.OnRoundResolved += uiController.ShowToast;
+    }
+
+    private void UnsubscribeFromBattle()
+    {
+        if (_battle != null)
+            _battle.RoundManager.OnRoundResolved -= uiController.ShowToast;
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeFromBattle();
+    }
+
+    public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
+    {
+        StartGame();
+    }
+    
+    public void OnExitClicked()         // 메인 메뉴: 종료
+    {
+        Application.Quit();
+    }
+    
+    public void OnNextClicked()         // 결과: 다음 단계 (지금은 메뉴로)
+    {
+        ShowMainMenu();
+    }
+    
+    public void OnMenuClicked()         // 결과: 메뉴로
+    {
+        ShowMainMenu();
+    }
+    
     private void OnGUI()
     {
         if(_showDebug)

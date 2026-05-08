@@ -1,9 +1,12 @@
+using System;
 using UnityEngine;
 using static Constant;
 using static DamageCalculator;
 
 public class RoundManager
 {
+    public event Action<RoundResult> OnRoundResolved; 
+    
     private CasterContext _player;
     private AICaster _ai;
 
@@ -82,6 +85,26 @@ public class RoundManager
         _aiHp -= finalPDmg;
         _playerHp -= finalAiDmg;
 
+        var result = new RoundResult
+        {
+            dmgDealtToAi = finalPDmg,
+            dmgReceived = finalAiDmg
+        };
+
+        bool playerCounteredFlag = (_player.confirmedForm == HandPose.Special
+                                    && _ai.ctx.confirmedElement == GetWeakAgainst(_player.confirmedElement));
+        bool aiCounteredFlag = (_ai.ctx.confirmedForm == HandPose.Special
+                                && _player.confirmedElement == GetWeakAgainst(_ai.ctx.confirmedElement));
+
+        if (playerCounteredFlag || aiCounteredFlag)
+            result.type = RoundResult.ResultType.Counter;
+        else if (finalPDmg == 0 && finalAiDmg == 0)
+            result.type = RoundResult.ResultType.Blocked;
+        else
+            result.type = RoundResult.ResultType.Normal;
+        
+        OnRoundResolved?.Invoke(result);
+        
         Debug.Log("=== 라운드 결과 ===");
         Debug.Log($"Player: {_player.confirmedElement}+{_player.confirmedForm} (위력 {pDmg})");
         Debug.Log($"AI: {_ai.ctx.confirmedElement}+{_ai.ctx.confirmedForm} (위력 {aiDmg})");
@@ -108,6 +131,7 @@ public class RoundManager
 
     private void ResolvePlayerFailed()
     {
+        
         Debug.Log("=== 라운드 결과: Player 영창 실패 ===");
 
         int aiDmg = Calculate(_ai.ctx.confirmedElement, _ai.ctx.confirmedForm,
@@ -119,6 +143,14 @@ public class RoundManager
         _playerHp -= aiDmg;
         
         Debug.Log($"HP: Player {_playerHp} / AI {_aiHp}");
+        
+        var result = new RoundResult
+        {
+            type = RoundResult.ResultType.Failed,
+            dmgDealtToAi = 0,
+            dmgReceived = aiDmg
+        };
+        OnRoundResolved?.Invoke(result);
 
         if (_ai.ctx.confirmedForm == HandPose.Attack)
             _prevAiEl = _ai.ctx.confirmedElement;
