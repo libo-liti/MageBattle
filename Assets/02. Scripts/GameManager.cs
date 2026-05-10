@@ -11,6 +11,7 @@ public class GameManager : MonoBehaviour
     private RivalData _currentRival;
     [SerializeField] private CameraController cameraController;
     [SerializeField] private GameObject stage;
+    [SerializeField] private MagicVfxController magicVfx;
     
     [Header("Hand Tracking")]
     [SerializeField] private HandVisualizer hand;
@@ -32,11 +33,13 @@ public class GameManager : MonoBehaviour
     [Header("UI Controller")]
     [SerializeField] private GameUIController uiController;
     
-    private bool _showDebug = true;
+    private bool _showDebug = false;
     
     private HandRecognizer _recognizer;
     private BattleManager _battle;
     private GameState _state = GameState.MainMenu;
+
+    private BattleState _prevPlayerState = BattleState.Idle;
     
     private void Awake()
     {
@@ -53,11 +56,6 @@ public class GameManager : MonoBehaviour
         cameraController.OnCameraSequenceComplete += HandleCameraComplete;
     }
 
-    private void HandleCameraComplete()
-    {
-        if(_battle != null)
-            _battle.RoundManager.RequestNextRound();
-    }
 
     private void Update()
     {
@@ -66,7 +64,26 @@ public class GameManager : MonoBehaviour
             _recognizer.Update();
             _battle.Update(_recognizer.CurrentPose, Time.deltaTime);
             
-            uiController.Refresh(_battle);
+            uiController.Refresh(_battle, _recognizer);
+
+            var currentPlayerState = _battle.Player.state;
+            if (_prevPlayerState == BattleState.Idle && currentPlayerState == BattleState.ElementCharging)
+            {
+                // 영창 시작 — 손에 빛
+                magicVfx.StartChargingVfx(_battle.Player.chargingElement);
+            }
+            else if (_prevPlayerState == BattleState.ElementCharging && currentPlayerState == BattleState.FormCharging)
+            {
+                // Element 확정 — 색 변경
+                magicVfx.StartChargingVfx(_battle.Player.confirmedElement);
+            }
+            else if ((_prevPlayerState == BattleState.ElementCharging || _prevPlayerState == BattleState.FormCharging) 
+                     && currentPlayerState == BattleState.Idle)
+            {
+                // 영창 취소 — 손 효과 끔
+                magicVfx.StopChargingVfx();
+            }
+            _prevPlayerState = currentPlayerState;
             
             if(_battle.RoundManager.GameOver)
                 ShowGameOver();
@@ -123,6 +140,27 @@ public class GameManager : MonoBehaviour
     {
         cameraController.ShowThirdPersonBriefly();
         uiController.ShowToast(result);
+        
+        HandlePostRoundVfx(result);
+    }
+
+    private void HandlePostRoundVfx(RoundResult result)
+    {
+        // Player가 영창 완료한 경우 — 마법 발사
+        if (_battle.Player.confirmedElement != HandPose.Unknown 
+            && result.dmgDealtToAi > 0)
+        {
+            magicVfx.FireProjectile(_battle.Player.confirmedElement);
+        }
+        else if (result.type == RoundResult.ResultType.Failed && result.dmgReceived > 0)
+        {
+            // 무방비 — Player 손 효과 끄고, AI 마법은 나중에 (지금 단순화)
+            magicVfx.StopChargingVfx();
+        }
+        else
+        {
+            magicVfx.StopChargingVfx();
+        }
     }
 
     public void ShowGameOver()
@@ -172,6 +210,11 @@ public class GameManager : MonoBehaviour
             cameraController.OnCameraSequenceComplete -= HandleCameraComplete;
     }
 
+    private void HandleCameraComplete()
+    {
+        if(_battle != null)
+            _battle.RoundManager.RequestNextRound();
+    }
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
     {
         ShowDojoSelect();
@@ -201,8 +244,8 @@ public class GameManager : MonoBehaviour
     {
         if(_showDebug)
             DrawFullDebug();
-        else
-            DrawMinimalUI();
+        // else
+        //     DrawMinimalUI();
     }
     
     private void DrawMinimalUI()

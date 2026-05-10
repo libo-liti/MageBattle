@@ -18,6 +18,11 @@ public class GameUIController : MonoBehaviour
     
     [Header("Casting Progress")]
     [SerializeField] private Image castingFill;
+    [SerializeField] private TextMeshProUGUI castingLabel;
+    
+    [Header("Webcam Hand Status")]
+    [SerializeField] private TextMeshProUGUI handStatusText;
+    [SerializeField] private TextMeshProUGUI poseInfoText;
 
     [Header("Enemy Magic Info")]
     [SerializeField] private TextMeshProUGUI enemyElementText;
@@ -31,11 +36,11 @@ public class GameUIController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI toastSymbol;
     [SerializeField] private TextMeshProUGUI toastLabel;
     [SerializeField] private TextMeshProUGUI toastValue;
-    [SerializeField] private UnityEngine.UI.Outline toastOutline;
+    [SerializeField] private Outline toastOutline;
 
     private Sequence _currentToastSequence;
     
-    public void Refresh(BattleManager battle)
+    public void Refresh(BattleManager battle, HandRecognizer recognizer)
     {
         if (battle == null) return;
         
@@ -44,11 +49,52 @@ public class GameUIController : MonoBehaviour
         UpdateAiHp(battle.RoundManager.AiHp);
         
         // 영창 진행
-        float progress = battle.RoundManager.RoundElapsedTime / RoundManager.ROUND_TIMEOUT;
-        UpdateCastingProgress(progress);
+        // float progress = battle.RoundManager.RoundElapsedTime / RoundManager.ROUND_TIMEOUT;
+        UpdateCastingProgress(battle);
         
         // 적 영창 정보
         UpdateEnemyMagicInfo(battle.AI);
+        
+        // 손 감지 상태 (NEW)
+        UpdateHandStatus(recognizer, battle.Player);
+    }
+    
+    private void UpdateHandStatus(HandRecognizer recognizer, CasterContext player)
+    {
+        Color green  = new Color(0.114f, 0.62f, 0.459f);
+        Color orange = new Color(1.0f, 0.42f, 0.21f);
+        Color red    = new Color(0.886f, 0.294f, 0.290f);
+    
+        bool left  = recognizer.LeftStable;
+        bool right = recognizer.RightStable;
+    
+        // 메인 상태
+        if (left && right)
+        {
+            handStatusText.text = "양손 감지됨";
+            handStatusText.color = green;
+        }
+        else if (left)
+        {
+            handStatusText.text = "왼손만";
+            handStatusText.color = orange;
+        }
+        else if (right)
+        {
+            handStatusText.text = "오른손만";
+            handStatusText.color = orange;
+        }
+        else
+        {
+            handStatusText.text = "손이 안 보입니다";
+            handStatusText.color = red;
+        }
+    
+        // PoseInfoText 비활성 또는 빈 텍스트 — 게임 단계 안내가 메인이라 중복 X
+        if (poseInfoText != null)
+        {
+            poseInfoText.text = "";
+        }
     }
 
     private void UpdatePlayerHp(int hp)
@@ -63,14 +109,90 @@ public class GameUIController : MonoBehaviour
         aiHpText.text = $"{hp} / {MAX_HP}";
     }
 
-    private void UpdateCastingProgress(float progress01)
+    private void UpdateCastingProgress(BattleManager battle)
     {
-        castingFill.fillAmount = Mathf.Clamp01(progress01);
-
-        if (progress01 < 0.5f)
+        var player = battle.Player;
+        float progress = battle.RoundManager.RoundElapsedTime / RoundManager.ROUND_TIMEOUT;
+    
+        // 진행 바 fill
+        castingFill.fillAmount = Mathf.Clamp01(progress);
+    
+        // 진행 바 색 (시간 위급도)
+        if (progress < 0.5f)
             castingFill.color = new Color(0.71f, 0.68f, 0.86f);  // 보라 (여유)
         else
-            castingFill.color = new Color(1.0f, 0.42f, 0.208f);  // 주황 (위급)
+            castingFill.color = new Color(1.0f, 0.42f, 0.21f);   // 주황 (위급)
+    
+        // 라벨 텍스트 + 색 (게임 단계)
+        string text;
+        Color color;
+    
+        Color purple = new Color(0.71f, 0.68f, 0.86f);  // 연보라 (대기·진행)
+        Color gold   = new Color(1.0f, 0.78f, 0.34f);   // 금색 (확정·다음 단계)
+        Color green  = new Color(0.114f, 0.62f, 0.459f); // 녹색 (발동 완료)
+    
+        switch (player.state)
+        {
+            case BattleState.Idle:
+                text = "원소를 선택하세요";
+                color = purple;
+                break;
+        
+            case BattleState.ElementCharging:
+                text = $"원소: {GetElementKr(player.chargingElement)} 유지 중...";
+                color = purple;
+                break;
+        
+            case BattleState.FormCharging:
+                if (player.chargingForm == HandPose.Unknown)
+                {
+                    text = $"[{GetElementKr(player.confirmedElement)} 확정] 형태를 잡으세요";
+                    color = gold;
+                }
+                else
+                {
+                    text = $"[{GetElementKr(player.confirmedElement)}] 형태: {GetFormKr(player.chargingForm)} 유지 중...";
+                    color = gold;
+                }
+                break;
+        
+            case BattleState.Casting:
+                text = $"{GetElementKr(player.confirmedElement)} + {GetFormKr(player.confirmedForm)} 발동!";
+                color = green;
+                break;
+        
+            default:
+                text = "";
+                color = purple;
+                break;
+        }
+    
+        castingLabel.text = text;
+        castingLabel.color = color;
+    }
+    
+    // 헬퍼 메서드 — 한국어 변환
+    private string GetElementKr(HandPose element)
+    {
+        switch (element)
+        {
+            case HandPose.Fire:  return "불";
+            case HandPose.Water: return "물";
+            case HandPose.Wind:  return "바람";
+            case HandPose.Land:  return "땅";
+            default:             return "?";
+        }
+    }
+
+    private string GetFormKr(HandPose form)
+    {
+        switch (form)
+        {
+            case HandPose.Attack:  return "공격";
+            case HandPose.Defense: return "방어";
+            case HandPose.Special: return "특수";
+            default:               return "?";
+        }
     }
 
     private void UpdateEnemyMagicInfo(AICaster ai)
