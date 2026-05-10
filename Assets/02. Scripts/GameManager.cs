@@ -2,10 +2,14 @@ using System;
 using Pose.DetailedVisualizer;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using static Constant;
 
 public class GameManager : MonoBehaviour
 {
+    public static GameManager Instance { get; private set; }
+    private RivalData _currentRival;
+    
     [Header("Hand Tracking")]
     [SerializeField] private HandVisualizer hand;
     [SerializeField] private GameObject leftHand;
@@ -15,11 +19,13 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject gamePanel;
     [SerializeField] private GameObject gameOverPanel;
+    [SerializeField] private GameObject dojoSelectPanel;
 
     [Header("Result UI")]
     [SerializeField] private TextMeshProUGUI resultText;
     [SerializeField] private TextMeshProUGUI subText;
     [SerializeField] private TextMeshProUGUI statValueText;
+    [SerializeField] private Button nextButton;
 
     [Header("UI Controller")]
     [SerializeField] private GameUIController uiController;
@@ -32,6 +38,8 @@ public class GameManager : MonoBehaviour
     
     private void Awake()
     {
+        Instance = this;
+        
         _recognizer = new HandRecognizer(hand, leftHand, rightHand);
         _battle = new BattleManager();
         SubscribeToBattle();
@@ -57,6 +65,16 @@ public class GameManager : MonoBehaviour
         
         if (Input.GetKeyDown(KeyCode.F1))
             _showDebug = !_showDebug;
+        if(Input.GetKeyDown(KeyCode.F2))
+            SaveSystem.UnlockAll();
+        if(Input.GetKeyDown(KeyCode.F3))
+            SaveSystem.ResetAll();
+    }
+
+    public void StartGameWithRival(RivalData rival)
+    {
+        _currentRival = rival;
+        StartGame();
     }
 
     public void ShowMainMenu()
@@ -65,6 +83,16 @@ public class GameManager : MonoBehaviour
         mainMenuPanel.SetActive(true);
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
+        dojoSelectPanel.SetActive(false);
+    }
+    
+    public void ShowDojoSelect()
+    {
+        _state = GameState.MainMenu;
+        mainMenuPanel.SetActive(false);
+        gamePanel.SetActive(false);
+        gameOverPanel.SetActive(false);
+        dojoSelectPanel.SetActive(true);
     }
 
     public void StartGame()
@@ -73,9 +101,10 @@ public class GameManager : MonoBehaviour
         mainMenuPanel.SetActive(false);
         gamePanel.SetActive(true);
         gameOverPanel.SetActive(false);
+        dojoSelectPanel.SetActive(false);
 
         UnsubscribeFromBattle();
-        _battle = new BattleManager();
+        _battle = new BattleManager(_currentRival);
         SubscribeToBattle();
     }
 
@@ -86,8 +115,21 @@ public class GameManager : MonoBehaviour
 
         bool playerWon = _battle.RoundManager.AiHp <= 0;
         resultText.text = playerWon ? "승리!" : "패배...";
-        subText.text = playerWon ? "견습 마법사를 격파했습니다." : "다음에 다시 도전해보세요";
+
+        if (_currentRival != null)
+        {
+            subText.text = playerWon 
+                ? $"{_currentRival.displayName}을(를) 격파했습니다" 
+                : "다음에 다시 도전해보세요";
+            
+            if(playerWon)
+                SaveSystem.MarkRivalDefeated(_currentRival.rivalId);
+        }
         statValueText.text = $"{_battle.RoundManager.PlayerHp} / 100";
+        SaveSystem.RecordGameResult(playerWon);
+        
+        if(nextButton != null)
+            nextButton.gameObject.SetActive(playerWon);
     }
 
     private void SubscribeToBattle()
@@ -108,7 +150,12 @@ public class GameManager : MonoBehaviour
 
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
     {
-        StartGame();
+        ShowDojoSelect();
+    }
+    
+    public void OnDojoBackClicked()
+    {
+        ShowMainMenu();
     }
     
     public void OnExitClicked()         // 메인 메뉴: 종료
