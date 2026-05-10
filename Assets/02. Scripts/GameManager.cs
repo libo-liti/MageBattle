@@ -9,6 +9,8 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     private RivalData _currentRival;
+    [SerializeField] private CameraController cameraController;
+    [SerializeField] private GameObject stage;
     
     [Header("Hand Tracking")]
     [SerializeField] private HandVisualizer hand;
@@ -84,6 +86,7 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(false);
+        stage.SetActive(false);
     }
     
     public void ShowDojoSelect()
@@ -102,10 +105,17 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(true);
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(false);
+        stage.SetActive(true);
 
         UnsubscribeFromBattle();
         _battle = new BattleManager(_currentRival);
         SubscribeToBattle();
+    }
+
+    private void OnRoundResolved(RoundResult result)
+    {
+        cameraController.ShowThirdPersonBriefly();
+        uiController.ShowToast(result);
     }
 
     public void ShowGameOver()
@@ -135,12 +145,16 @@ public class GameManager : MonoBehaviour
     private void SubscribeToBattle()
     {
         _battle.RoundManager.OnRoundResolved += uiController.ShowToast;
+        _battle.RoundManager.OnRoundResolved += OnRoundResolved;
     }
 
     private void UnsubscribeFromBattle()
     {
         if (_battle != null)
+        {
             _battle.RoundManager.OnRoundResolved -= uiController.ShowToast;
+            _battle.RoundManager.OnRoundResolved -= OnRoundResolved;
+        }
     }
 
     private void OnDestroy()
