@@ -16,7 +16,11 @@ public class RoundManager
     private HandPose _prevAiEl = HandPose.Unknown;
     private bool _gameOver = false;
     private bool _roundActive = false;
+    private float _roundElapsedTime = 0f;
+    public const float ROUND_TIMEOUT = 10F;
 
+    public float RoundElapsedTime => _roundElapsedTime;
+    
     // OnGUI
     public int PlayerHp => _playerHp;
     public int AiHp => _aiHp;
@@ -28,10 +32,12 @@ public class RoundManager
         _ai = ai;
     }
 
-    public void Update()
+    public void Update(float deltaTime)
     {
         if(_gameOver) return;
         if (!_roundActive) return;
+
+        _roundElapsedTime += deltaTime;
 
         if (_player.state == BattleState.Casting && _ai.ctx.state == BattleState.Casting)
         {
@@ -39,16 +45,35 @@ public class RoundManager
             return;
         }
 
-        if (_player.state == BattleState.Idle && _ai.ctx.state == BattleState.Casting)
+        if (_roundElapsedTime >= ROUND_TIMEOUT)
         {
-            ResolvePlayerFailed();
+            if (_player.state != BattleState.Casting && _ai.ctx.state == BattleState.Casting)
+            {
+                ResolvePlayerFailed();
+            }
+            else if (_player.state == BattleState.Casting && _ai.ctx.state != BattleState.Casting)
+            {
+                ResolveAiFailed();
+            }
+            else
+            {
+                ResolveBothFailed();
+            }
             return;
         }
+    }
+
+    public void RequestNextRound()
+    {
+        if (_gameOver) return;
+        _ai.StartRound();
+        StartRound();
     }
 
     public void StartRound()
     {
         _roundActive = true;
+        _roundElapsedTime = 0f;
     }
 
     private void ResolveRound()
@@ -159,6 +184,63 @@ public class RoundManager
         {
             _gameOver = true;
             Debug.Log("패배...");
+        }
+        else
+        {
+            ResetCasters();
+            _roundActive = false;
+        }
+    }
+    
+    private void ResolveAiFailed()
+    {
+        Debug.Log("=== 라운드 결과: AI 영창 실패 ===");
+
+        int pDmg = Calculate(_player.confirmedElement, _player.confirmedForm,
+            HandPose.Unknown, HandPose.Unknown, _prevPlayerEl);
+    
+        Debug.Log($"Player: {_player.confirmedElement}+{_player.confirmedForm} (위력 {pDmg})");
+        Debug.Log($"AI 무방비 → {pDmg} 받음");
+
+        _aiHp -= pDmg;
+    
+        var result = new RoundResult
+        {
+            type = RoundResult.ResultType.Failed,
+            dmgDealtToAi = pDmg,
+            dmgReceived = 0
+        };
+        OnRoundResolved?.Invoke(result);
+
+        if (_player.confirmedForm == HandPose.Attack)
+            _prevPlayerEl = _player.confirmedElement;
+
+        if (_aiHp <= 0)
+        {
+            _gameOver = true;
+        }
+        else
+        {
+            ResetCasters();
+            _roundActive = false;
+        }
+    }
+
+    private void ResolveBothFailed()
+    {
+        Debug.Log("=== 라운드 결과: 둘 다 영창 실패 ===");
+    
+        var result = new RoundResult
+        {
+            type = RoundResult.ResultType.Blocked,
+            dmgDealtToAi = 0,
+            dmgReceived = 0
+        };
+        OnRoundResolved?.Invoke(result);
+
+        if (_aiHp <= 0)
+        {
+            _gameOver = true;
         }
         else
         {

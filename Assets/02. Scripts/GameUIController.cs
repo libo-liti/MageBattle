@@ -7,7 +7,6 @@ using static Constant;
 public class GameUIController : MonoBehaviour
 {
     private const int MAX_HP = 100;
-    private const float TOTAL_DURATION = 10.0f;
     
     [Header("Player HP")]
     [SerializeField] private Image playerHpFill;       // Image 타입!
@@ -45,7 +44,7 @@ public class GameUIController : MonoBehaviour
         UpdateAiHp(battle.RoundManager.AiHp);
         
         // 영창 진행
-        float progress = battle.Player.totalTime / TOTAL_DURATION;
+        float progress = battle.RoundManager.RoundElapsedTime / RoundManager.ROUND_TIMEOUT;
         UpdateCastingProgress(progress);
         
         // 적 영창 정보
@@ -69,9 +68,9 @@ public class GameUIController : MonoBehaviour
         castingFill.fillAmount = Mathf.Clamp01(progress01);
 
         if (progress01 < 0.5f)
-            castingFill.color = new Color(1.0f, 0.42f, 0.208f);
+            castingFill.color = new Color(0.71f, 0.68f, 0.86f);  // 보라 (여유)
         else
-            castingFill.color = new Color(0.71f, 0.68f, 0.86f);
+            castingFill.color = new Color(1.0f, 0.42f, 0.208f);  // 주황 (위급)
     }
 
     private void UpdateEnemyMagicInfo(AICaster ai)

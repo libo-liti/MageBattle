@@ -50,6 +50,13 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         ShowMainMenu();
+        cameraController.OnCameraSequenceComplete += HandleCameraComplete;
+    }
+
+    private void HandleCameraComplete()
+    {
+        if(_battle != null)
+            _battle.RoundManager.RequestNextRound();
     }
 
     private void Update()
@@ -160,6 +167,9 @@ public class GameManager : MonoBehaviour
     private void OnDestroy()
     {
         UnsubscribeFromBattle();
+
+        if (cameraController != null)
+            cameraController.OnCameraSequenceComplete -= HandleCameraComplete;
     }
 
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기

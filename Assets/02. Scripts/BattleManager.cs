@@ -3,7 +3,6 @@ using static Constant;
 public class BattleManager
 {
     private const float REQUIRED_HOLD = 1.0f;
-    private const float TOTAL_DURATION = 10.0f;
     
     private CasterContext _player = new CasterContext();
     private AICaster _ai = new AICaster();
@@ -29,14 +28,8 @@ public class BattleManager
     {
         UpdateCaster(_player, pose, deltaTime);
         
-        if (_player.state == BattleState.Idle && _ai.ctx.state == BattleState.Idle)
-        {
-            _ai.StartRound();
-            _roundManager.StartRound();
-        }
-        
         _ai.Update(deltaTime);
-        _roundManager.Update();
+        _roundManager.Update(deltaTime);
     }
     
     private void UpdateCaster(CasterContext ctx, HandPose pose, float deltaTime)
@@ -54,16 +47,7 @@ public class BattleManager
                 break;
             case BattleState.ElementCharging:
                 ctx.totalTime += deltaTime;
-
-                if (ctx.totalTime >= TOTAL_DURATION)
-                {
-                    ctx.state = BattleState.Idle;
-                    ctx.holdTime = 0f;
-                    ctx.totalTime = 0f;
-                    ctx.chargingElement = HandPose.Unknown;
-                    break;
-                }
-
+                
                 if (IsElement(pose))
                 {
                     if (pose == ctx.chargingElement)
@@ -86,16 +70,6 @@ public class BattleManager
                 break;
             case BattleState.FormCharging:
                 ctx.totalTime += deltaTime;
-
-                if (ctx.totalTime >= TOTAL_DURATION)
-                {
-                    ctx.state = BattleState.Idle;
-                    ctx.chargingElement = HandPose.Unknown;
-                    ctx.chargingForm = HandPose.Unknown;
-                    ctx.holdTime = 0f;
-                    ctx.totalTime = 0f;
-                    break;
-                }
 
                 if (IsElement(pose) && pose != ctx.confirmedElement)
                 {
