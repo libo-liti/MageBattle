@@ -15,6 +15,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject gamePanel;
     [SerializeField] private GameObject gameOverPanel;
+    [SerializeField] private GameObject dojoSelectPanel;
 
     [Header("Result UI")]
     [SerializeField] private TextMeshProUGUI resultText;
@@ -65,6 +66,16 @@ public class GameManager : MonoBehaviour
         mainMenuPanel.SetActive(true);
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
+        dojoSelectPanel.SetActive(false);
+    }
+    
+    public void ShowDojoSelect()
+    {
+        _state = GameState.MainMenu;
+        mainMenuPanel.SetActive(false);
+        gamePanel.SetActive(false);
+        gameOverPanel.SetActive(false);
+        dojoSelectPanel.SetActive(true);
     }
 
     public void StartGame()
@@ -73,6 +84,7 @@ public class GameManager : MonoBehaviour
         mainMenuPanel.SetActive(false);
         gamePanel.SetActive(true);
         gameOverPanel.SetActive(false);
+        dojoSelectPanel.SetActive(false);
 
         UnsubscribeFromBattle();
         _battle = new BattleManager();
@@ -108,7 +120,17 @@ public class GameManager : MonoBehaviour
 
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
     {
+        ShowDojoSelect();
+    }
+
+    public void OnApprenticeChallengeClicked()
+    {
         StartGame();
+    }
+
+    public void OnDojoBackClicked()
+    {
+        ShowMainMenu();
     }
     
     public void OnExitClicked()         // 메인 메뉴: 종료
