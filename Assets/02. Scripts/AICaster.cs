@@ -10,6 +10,9 @@ public class AICaster
     private HandPose _plannedForm;
     private bool _roundActive;
 
+    private float _aiTimeMin = 4f;
+    private float _aiTimeMax = 7f;
+
     public AICaster()
     {
         ctx = new CasterContext();
@@ -20,7 +23,7 @@ public class AICaster
         _plannedElement = RandomElement();
         _plannedForm = RandomForm();
 
-        _plannedDuration = Random.Range(4f, 7f);
+        _plannedDuration = Random.Range(_aiTimeMin, _aiTimeMax);
 
         ctx.state = BattleState.ElementCharging;
         ctx.chargingElement = _plannedElement;
@@ -48,6 +51,12 @@ public class AICaster
             ctx.state = BattleState.Casting;
             _roundActive = false;
         }
+    }
+
+    public void SetRivalData(RivalData rival)
+    {
+        _aiTimeMin = rival.aiTimeMin;
+        _aiTimeMax = rival.aiTimeMax;
     }
 
     private HandPose RandomElement()

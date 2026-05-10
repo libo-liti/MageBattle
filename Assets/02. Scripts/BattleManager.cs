@@ -8,27 +8,32 @@ public class BattleManager
     private CasterContext _player = new CasterContext();
     private AICaster _ai = new AICaster();
     private RoundManager _roundManager;
-    private BattleState _prevPlayerState = BattleState.Idle;
 
     public CasterContext Player => _player;
     public AICaster AI => _ai;
     public RoundManager RoundManager => _roundManager;
 
-    public BattleManager()
+    public BattleManager(RivalData rival = null)
     {
+        _player = new CasterContext();
+        _ai = new AICaster();
         _roundManager = new RoundManager(_player, _ai);
+        
+        if(rival != null)
+            _ai.SetRivalData(rival);
+        
+        _roundManager.StartRound();
     }
 
     public void Update(HandPose pose, float deltaTime)
     {
         UpdateCaster(_player, pose, deltaTime);
         
-        if (_prevPlayerState == BattleState.Idle && _player.state == BattleState.ElementCharging)
+        if (_player.state == BattleState.Idle && _ai.ctx.state == BattleState.Idle)
         {
             _ai.StartRound();
             _roundManager.StartRound();
         }
-        _prevPlayerState = _player.state;
         
         _ai.Update(deltaTime);
         _roundManager.Update();
