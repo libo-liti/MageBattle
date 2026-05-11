@@ -2,28 +2,28 @@ using System.Collections;
 using UnityEngine;
 using static Constant;
 
-public class MagicVfxController : MonoBehaviour
+public class CasterMagicVfx : MonoBehaviour
 {
     [Header("Charging VFX (양손)")]
     [SerializeField] private ParticleSystem leftHandVfx;
     [SerializeField] private ParticleSystem rightHandVfx;
-    
+
     [Header("Projectile VFX (마법 발사)")]
     [SerializeField] private GameObject projectileObject;
     [SerializeField] private ParticleSystem projectileVfx;
     [SerializeField] private Transform projectileStartPos;
-    [SerializeField] private Transform projectileTarget;
+    [SerializeField] private Transform projectileTarget;     
     [SerializeField] private float projectileFlightTime = 0.6f;
-    
-    [Header("Hit VFX (적 충돌)")]
-    [SerializeField] private GameObject hitObject;
-    [SerializeField] private ParticleSystem hitVfx;
 
+    [Header("Target Hit VFX (상대가 맞을 때)")]
+    [SerializeField] private GameObject targetHitObject;     
+    [SerializeField] private ParticleSystem targetHitVfx;
+    
     private static readonly Color FireColor  = new Color(1.00f, 0.42f, 0.21f);
     private static readonly Color WaterColor = new Color(0.31f, 0.80f, 0.77f);
     private static readonly Color WindColor  = new Color(0.91f, 0.91f, 0.91f);
     private static readonly Color LandColor  = new Color(0.55f, 0.44f, 0.28f);
-
+    
     public static Color GetElementColor(HandPose element)
     {
         switch (element)
@@ -35,15 +35,15 @@ public class MagicVfxController : MonoBehaviour
             default:             return Color.white;
         }
     }
-
+    
     private void Awake()
     {
-        StopChargingVfx();
+        StopCharging();
         if (projectileObject != null) projectileObject.SetActive(false);
-        if (hitObject != null) hitObject.SetActive(false);
+        if (targetHitObject != null) targetHitObject.SetActive(false);
     }
-
-    public void StartChargingVfx(HandPose element)
+    
+    public void StartCharging(HandPose element)
     {
         Color c = GetElementColor(element);
         SetParticleColor(leftHandVfx, c);
@@ -51,20 +51,20 @@ public class MagicVfxController : MonoBehaviour
         leftHandVfx.Play();
         rightHandVfx.Play();
     }
-
-    public void StopChargingVfx()
+    
+    public void StopCharging()
     {
         if (leftHandVfx != null) leftHandVfx.Stop();
         if (rightHandVfx != null) rightHandVfx.Stop();
     }
-
-    public void FireProjectile(HandPose element)
+    
+    public void Fire(HandPose element, bool showHit = true)
     {
-        StopChargingVfx();
-        StartCoroutine(ProjectileRoutine(element));
+        StopCharging();
+        StartCoroutine(ProjectileRoutine(element, showHit));
     }
-
-    private IEnumerator ProjectileRoutine(HandPose element)
+    
+    private IEnumerator ProjectileRoutine(HandPose element, bool showHit)
     {
         Color c = GetElementColor(element);
         
@@ -84,23 +84,24 @@ public class MagicVfxController : MonoBehaviour
             yield return null;
         }
         
-        TriggerHit(element);
+        if(showHit)
+            TriggerTargetHit(element);
         
         projectileVfx.Stop();
         projectileObject.SetActive(false);
         projectileObject.transform.position = startPos;
     }
 
-    public void TriggerHit(HandPose element)
+    public void TriggerTargetHit(HandPose element)
     {
         Color c = GetElementColor(element);
-        hitObject.SetActive(true);
-        SetParticleColor(hitVfx, c);
-        hitVfx.Stop();
-        hitVfx.Clear();
-        hitVfx.Play();
+        targetHitObject.SetActive(true);
+        SetParticleColor(targetHitVfx, c);
+        targetHitVfx.Stop();
+        targetHitVfx.Clear();
+        targetHitVfx.Play();
         
-        StartCoroutine(DeactivateAfter(hitObject, 1.5f));
+        StartCoroutine(DeactivateAfter(targetHitObject, 1.5f));
     }
 
     private IEnumerator DeactivateAfter(GameObject obj, float seconds)

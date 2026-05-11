@@ -1,4 +1,3 @@
-using System;
 using Pose.DetailedVisualizer;
 using TMPro;
 using UnityEngine;
@@ -11,7 +10,8 @@ public class GameManager : MonoBehaviour
     private RivalData _currentRival;
     [SerializeField] private CameraController cameraController;
     [SerializeField] private GameObject stage;
-    [SerializeField] private MagicVfxController magicVfx;
+    [SerializeField] private CasterMagicVfx playerVfx;
+    [SerializeField] private CasterMagicVfx aiVfx;
     
     [Header("Hand Tracking")]
     [SerializeField] private HandVisualizer hand;
@@ -40,6 +40,7 @@ public class GameManager : MonoBehaviour
     private GameState _state = GameState.MainMenu;
 
     private BattleState _prevPlayerState = BattleState.Idle;
+    private BattleState _prevAiState = BattleState.Idle;
     
     private void Awake()
     {
@@ -70,20 +71,36 @@ public class GameManager : MonoBehaviour
             if (_prevPlayerState == BattleState.Idle && currentPlayerState == BattleState.ElementCharging)
             {
                 // 영창 시작 — 손에 빛
-                magicVfx.StartChargingVfx(_battle.Player.chargingElement);
+                playerVfx.StartCharging(_battle.Player.chargingElement);
             }
             else if (_prevPlayerState == BattleState.ElementCharging && currentPlayerState == BattleState.FormCharging)
             {
                 // Element 확정 — 색 변경
-                magicVfx.StartChargingVfx(_battle.Player.confirmedElement);
+                playerVfx.StartCharging(_battle.Player.confirmedElement);
             }
             else if ((_prevPlayerState == BattleState.ElementCharging || _prevPlayerState == BattleState.FormCharging) 
                      && currentPlayerState == BattleState.Idle)
             {
                 // 영창 취소 — 손 효과 끔
-                magicVfx.StopChargingVfx();
+                playerVfx.StopCharging();
             }
             _prevPlayerState = currentPlayerState;
+
+            var currentAiState = _battle.AI.ctx.state;          // ← AICaster API 확인 필요
+            if (_prevAiState == BattleState.Idle && currentAiState == BattleState.ElementCharging)
+            {
+                aiVfx.StartCharging(_battle.AI.ctx.chargingElement);
+            }
+            else if (_prevAiState == BattleState.ElementCharging && currentAiState == BattleState.FormCharging)
+            {
+                aiVfx.StartCharging(_battle.AI.ctx.confirmedElement);
+            }
+            else if ((_prevAiState == BattleState.ElementCharging || _prevAiState == BattleState.FormCharging)
+                     && currentAiState == BattleState.Idle)
+            {
+                aiVfx.StopCharging();
+            }
+            _prevAiState = currentAiState;
             
             if(_battle.RoundManager.GameOver)
                 ShowGameOver();
@@ -146,21 +163,20 @@ public class GameManager : MonoBehaviour
 
     private void HandlePostRoundVfx(RoundResult result)
     {
-        // Player가 영창 완료한 경우 — 마법 발사
-        if (_battle.Player.confirmedElement != HandPose.Unknown 
-            && result.dmgDealtToAi > 0)
-        {
-            magicVfx.FireProjectile(_battle.Player.confirmedElement);
-        }
-        else if (result.type == RoundResult.ResultType.Failed && result.dmgReceived > 0)
-        {
-            // 무방비 — Player 손 효과 끄고, AI 마법은 나중에 (지금 단순화)
-            magicVfx.StopChargingVfx();
-        }
+        bool playerFired = _battle.Player.confirmedElement != HandPose.Unknown
+                           && _battle.Player.confirmedForm != HandPose.Defense;
+        bool aiFired = _battle.AI.ctx.confirmedElement != HandPose.Unknown
+                       && _battle.AI.ctx.confirmedForm != HandPose.Defense;
+        
+        if (playerFired)
+            playerVfx.Fire(_battle.Player.confirmedElement, result.dmgDealtToAi > 0);
         else
-        {
-            magicVfx.StopChargingVfx();
-        }
+            playerVfx.StopCharging();
+    
+        if (aiFired)
+            aiVfx.Fire(_battle.AI.ctx.confirmedElement, result.dmgReceived > 0);
+        else
+            aiVfx.StopCharging();
     }
 
     public void ShowGameOver()
