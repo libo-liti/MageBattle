@@ -66,7 +66,6 @@ public class RoundManager
     public void RequestNextRound()
     {
         if (_gameOver) return;
-        _ai.StartRound();
         StartRound();
     }
 
@@ -74,6 +73,7 @@ public class RoundManager
     {
         _roundActive = true;
         _roundElapsedTime = 0f;
+        _ai.StartRound();
     }
 
     private void ResolveRound()
