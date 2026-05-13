@@ -1,5 +1,6 @@
 using Pose.DetailedVisualizer;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using static Constant;
@@ -23,6 +24,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject gamePanel;
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private GameObject dojoSelectPanel;
+    [SerializeField] private GameObject pauseMenuPanel;
 
     [Header("Result UI")]
     [SerializeField] private TextMeshProUGUI resultText;
@@ -34,6 +36,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameUIController uiController;
     
     private bool _showDebug = false;
+    private bool _prevState;
     
     private HandRecognizer _recognizer;
     private BattleManager _battle;
@@ -60,6 +63,14 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (_state == GameState.Playing)
+                PauseGame();
+            else if (_state == GameState.Pause)
+                ResumeGame();
+        }
+        
         if (_state == GameState.Playing)
         {
             _recognizer.Update();
@@ -114,6 +125,29 @@ public class GameManager : MonoBehaviour
             SaveSystem.ResetAll();
     }
 
+    public void PauseGame()
+    {
+        _state = GameState.Pause;
+        pauseMenuPanel.SetActive(true);
+    }
+
+    public void ResumeGame()
+    {
+        _state = GameState.Playing;
+        pauseMenuPanel.SetActive(false);
+    }
+    
+    public void OnResumeClicked()
+    {
+        ResumeGame();
+    }
+
+    public void OnPauseMenuClicked()
+    {
+        pauseMenuPanel.SetActive(false);
+        ShowMainMenu();
+    }
+
     public void StartGameWithRival(RivalData rival)
     {
         _currentRival = rival;
@@ -128,6 +162,7 @@ public class GameManager : MonoBehaviour
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(false);
         stage.SetActive(false);
+        pauseMenuPanel.SetActive(false);
     }
     
     public void ShowDojoSelect()
@@ -137,6 +172,7 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(true);
+        pauseMenuPanel.SetActive(false);
     }
 
     public void StartGame()
@@ -147,6 +183,7 @@ public class GameManager : MonoBehaviour
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(false);
         stage.SetActive(true);
+        pauseMenuPanel.SetActive(false);
 
         UnsubscribeFromBattle();
         _battle = new BattleManager(_currentRival);
