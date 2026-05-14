@@ -49,4 +49,42 @@ public static class Constant
         FormCharging,
         Casting
     }
+
+    public enum BgmId
+    {
+        None,
+        MainMenu,
+        Battle,
+        Victory,
+        Defeat
+    }
+
+    public enum SfxId
+    {
+        None,
+    
+        // UI
+        UiClick,
+        UiHover,
+    
+        // 영창
+        ElementConfirmed,    // 원소 1초 유지 성공
+        FormConfirmed,       // 형태 1초 유지 성공
+    
+        // 마법 발사
+        CastFire,
+        CastWater,
+        CastWind,
+        CastLand,
+    
+        // 결과
+        Hit,                 // 데미지 받음
+        Block,               // 방어 성공
+        Counter,             // 카운터 성공
+        RoundFail,           // 영창 실패 (시간 초과)
+    
+        // 게임 결과
+        Victory,
+        Defeat,
+    }
 }
