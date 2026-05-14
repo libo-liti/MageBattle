@@ -1,6 +1,6 @@
-using System;
 using Pose.DetailedVisualizer;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using static Constant;
@@ -9,6 +9,10 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     private RivalData _currentRival;
+    [SerializeField] private CameraController cameraController;
+    [SerializeField] private GameObject stage;
+    [SerializeField] private CasterMagicVfx playerVfx;
+    [SerializeField] private CasterMagicVfx aiVfx;
     
     [Header("Hand Tracking")]
     [SerializeField] private HandVisualizer hand;
@@ -20,6 +24,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject gamePanel;
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private GameObject dojoSelectPanel;
+    [SerializeField] private GameObject pauseMenuPanel;
 
     [Header("Result UI")]
     [SerializeField] private TextMeshProUGUI resultText;
@@ -30,11 +35,15 @@ public class GameManager : MonoBehaviour
     [Header("UI Controller")]
     [SerializeField] private GameUIController uiController;
     
-    private bool _showDebug = true;
+    private bool _showDebug = false;
+    private bool _prevState;
     
     private HandRecognizer _recognizer;
     private BattleManager _battle;
     private GameState _state = GameState.MainMenu;
+
+    private BattleState _prevPlayerState = BattleState.Idle;
+    private BattleState _prevAiState = BattleState.Idle;
     
     private void Awake()
     {
@@ -48,16 +57,61 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         ShowMainMenu();
+        cameraController.OnCameraSequenceComplete += HandleCameraComplete;
     }
+
 
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (_state == GameState.Playing)
+                PauseGame();
+            else if (_state == GameState.Pause)
+                ResumeGame();
+        }
+        
         if (_state == GameState.Playing)
         {
             _recognizer.Update();
             _battle.Update(_recognizer.CurrentPose, Time.deltaTime);
             
-            uiController.Refresh(_battle);
+            uiController.Refresh(_battle, _recognizer);
+
+            var currentPlayerState = _battle.Player.state;
+            if (_prevPlayerState == BattleState.Idle && currentPlayerState == BattleState.ElementCharging)
+            {
+                // 영창 시작 — 손에 빛
+                playerVfx.StartCharging(_battle.Player.chargingElement);
+            }
+            else if (_prevPlayerState == BattleState.ElementCharging && currentPlayerState == BattleState.FormCharging)
+            {
+                // Element 확정 — 색 변경
+                playerVfx.StartCharging(_battle.Player.confirmedElement);
+            }
+            else if ((_prevPlayerState == BattleState.ElementCharging || _prevPlayerState == BattleState.FormCharging) 
+                     && currentPlayerState == BattleState.Idle)
+            {
+                // 영창 취소 — 손 효과 끔
+                playerVfx.StopCharging();
+            }
+            _prevPlayerState = currentPlayerState;
+
+            var currentAiState = _battle.AI.ctx.state;          // ← AICaster API 확인 필요
+            if (_prevAiState == BattleState.Idle && currentAiState == BattleState.ElementCharging)
+            {
+                aiVfx.StartCharging(_battle.AI.ctx.chargingElement);
+            }
+            else if (_prevAiState == BattleState.ElementCharging && currentAiState == BattleState.FormCharging)
+            {
+                aiVfx.StartCharging(_battle.AI.ctx.confirmedElement);
+            }
+            else if ((_prevAiState == BattleState.ElementCharging || _prevAiState == BattleState.FormCharging)
+                     && currentAiState == BattleState.Idle)
+            {
+                aiVfx.StopCharging();
+            }
+            _prevAiState = currentAiState;
             
             if(_battle.RoundManager.GameOver)
                 ShowGameOver();
@@ -69,6 +123,29 @@ public class GameManager : MonoBehaviour
             SaveSystem.UnlockAll();
         if(Input.GetKeyDown(KeyCode.F3))
             SaveSystem.ResetAll();
+    }
+
+    public void PauseGame()
+    {
+        _state = GameState.Pause;
+        pauseMenuPanel.SetActive(true);
+    }
+
+    public void ResumeGame()
+    {
+        _state = GameState.Playing;
+        pauseMenuPanel.SetActive(false);
+    }
+    
+    public void OnResumeClicked()
+    {
+        ResumeGame();
+    }
+
+    public void OnPauseMenuClicked()
+    {
+        pauseMenuPanel.SetActive(false);
+        ShowMainMenu();
     }
 
     public void StartGameWithRival(RivalData rival)
@@ -84,6 +161,8 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(false);
+        stage.SetActive(false);
+        pauseMenuPanel.SetActive(false);
     }
     
     public void ShowDojoSelect()
@@ -93,6 +172,7 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(true);
+        pauseMenuPanel.SetActive(false);
     }
 
     public void StartGame()
@@ -102,10 +182,38 @@ public class GameManager : MonoBehaviour
         gamePanel.SetActive(true);
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(false);
+        stage.SetActive(true);
+        pauseMenuPanel.SetActive(false);
 
         UnsubscribeFromBattle();
         _battle = new BattleManager(_currentRival);
         SubscribeToBattle();
+    }
+
+    private void OnRoundResolved(RoundResult result)
+    {
+        cameraController.ShowThirdPersonBriefly();
+        uiController.ShowToast(result);
+        
+        HandlePostRoundVfx(result);
+    }
+
+    private void HandlePostRoundVfx(RoundResult result)
+    {
+        bool playerFired = _battle.Player.confirmedElement != HandPose.Unknown
+                           && _battle.Player.confirmedForm != HandPose.Defense;
+        bool aiFired = _battle.AI.ctx.confirmedElement != HandPose.Unknown
+                       && _battle.AI.ctx.confirmedForm != HandPose.Defense;
+        
+        if (playerFired)
+            playerVfx.Fire(_battle.Player.confirmedElement, result.dmgDealtToAi > 0);
+        else
+            playerVfx.StopCharging();
+    
+        if (aiFired)
+            aiVfx.Fire(_battle.AI.ctx.confirmedElement, result.dmgReceived > 0);
+        else
+            aiVfx.StopCharging();
     }
 
     public void ShowGameOver()
@@ -135,19 +243,31 @@ public class GameManager : MonoBehaviour
     private void SubscribeToBattle()
     {
         _battle.RoundManager.OnRoundResolved += uiController.ShowToast;
+        _battle.RoundManager.OnRoundResolved += OnRoundResolved;
     }
 
     private void UnsubscribeFromBattle()
     {
         if (_battle != null)
+        {
             _battle.RoundManager.OnRoundResolved -= uiController.ShowToast;
+            _battle.RoundManager.OnRoundResolved -= OnRoundResolved;
+        }
     }
 
     private void OnDestroy()
     {
         UnsubscribeFromBattle();
+
+        if (cameraController != null)
+            cameraController.OnCameraSequenceComplete -= HandleCameraComplete;
     }
 
+    private void HandleCameraComplete()
+    {
+        if(_battle != null)
+            _battle.RoundManager.RequestNextRound();
+    }
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
     {
         ShowDojoSelect();
@@ -177,8 +297,8 @@ public class GameManager : MonoBehaviour
     {
         if(_showDebug)
             DrawFullDebug();
-        else
-            DrawMinimalUI();
+        // else
+        //     DrawMinimalUI();
     }
     
     private void DrawMinimalUI()

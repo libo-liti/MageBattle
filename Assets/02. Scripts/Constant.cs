@@ -2,7 +2,7 @@ using UnityEngine;
 
 public static class Constant
 {
-    public enum GameState { MainMenu, Playing, GameOver }
+    public enum GameState { MainMenu, Playing, Pause, GameOver }
     
     public enum HandJoint
     {
