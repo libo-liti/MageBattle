@@ -269,12 +269,14 @@ public class GameManager : MonoBehaviour
             _battle.RoundManager.RequestNextRound();
     }
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
-    {
+    {   
+        SoundManager.Instance.PlaySfx(SfxId.UiClick);
         ShowDojoSelect();
     }
     
     public void OnDojoBackClicked()
     {
+        SoundManager.Instance.PlaySfx(SfxId.UiClick);
         ShowMainMenu();
     }
     
