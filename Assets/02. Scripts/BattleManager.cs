@@ -32,7 +32,7 @@ public class BattleManager
         _roundManager.Update(deltaTime);
     }
     
-    private void UpdateCaster(CasterContext ctx, HandPose pose, float deltaTime)
+    public static void UpdateCaster(CasterContext ctx, HandPose pose, float deltaTime)
     {
         switch (ctx.state)
         {
@@ -115,12 +115,12 @@ public class BattleManager
         }
     }
     
-    private bool IsElement(HandPose pose)
+    public static bool IsElement(HandPose pose)
     {
         return pose == HandPose.Fire || pose == HandPose.Water || pose == HandPose.Wind || pose == HandPose.Land;
     }
 
-    private bool IsForm(HandPose pose)
+    public static bool IsForm(HandPose pose)
     {
         return pose == HandPose.Attack || pose == HandPose.Defense || pose == HandPose.Special;
     }

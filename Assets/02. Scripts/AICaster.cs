@@ -32,6 +32,24 @@ public class AICaster
         _roundActive = true;
     }
 
+    public void StartRound(HandPose element, HandPose form, float duration)
+    {
+        _plannedElement = element;
+        _plannedForm = form;
+        _plannedDuration = duration;
+
+        ctx.state = BattleState.ElementCharging;
+        ctx.chargingElement = _plannedElement;
+        ctx.totalTime = 0;
+        _roundActive = true;
+    }
+
+    public void StartIdleRound()
+    {
+        _roundActive = false;
+        ctx.state = BattleState.Idle;
+    }
+
     public void Update(float deltaTime)
     {
         if (!_roundActive) return;
