@@ -32,14 +32,20 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI statValueText;
     [SerializeField] private Button nextButton;
 
+    [Header("Tutorial")]
+    [SerializeField] private GameObject tutorialPanel;
+    [SerializeField] private TutorialConfig tutorialConfig;
+    [SerializeField] private TutorialUIController tutorialUIController;
+
     [Header("UI Controller")]
     [SerializeField] private GameUIController uiController;
-    
+
     private bool _showDebug = false;
     private bool _prevState;
     
     private HandRecognizer _recognizer;
     private BattleManager _battle;
+    private TutorialManager _tutorial;
     private GameState _state = GameState.MainMenu;
 
     private BattleState _prevPlayerState = BattleState.Idle;
@@ -69,6 +75,8 @@ public class GameManager : MonoBehaviour
                 PauseGame();
             else if (_state == GameState.Pause)
                 ResumeGame();
+            else if (_state == GameState.Tutorial)
+                StopTutorial();
         }
         
         if (_state == GameState.Playing)
@@ -115,6 +123,38 @@ public class GameManager : MonoBehaviour
             
             if(_battle.RoundManager.GameOver)
                 ShowGameOver();
+        }
+
+        if (_state == GameState.Tutorial)
+        {
+            _recognizer.Update();
+            BattleManager.UpdateCaster(_tutorial.Player, _recognizer.CurrentPose, Time.deltaTime);
+            _tutorial.Update(Time.deltaTime);
+
+            var currentPlayerState = _tutorial.Player.state;
+            if (_prevPlayerState == BattleState.Idle && currentPlayerState == BattleState.ElementCharging)
+                playerVfx.StartCharging(_tutorial.Player.chargingElement);
+            else if (_prevPlayerState == BattleState.ElementCharging && currentPlayerState == BattleState.FormCharging)
+                playerVfx.StartCharging(_tutorial.Player.confirmedElement);
+            else if ((_prevPlayerState == BattleState.ElementCharging || _prevPlayerState == BattleState.FormCharging)
+                     && currentPlayerState == BattleState.Idle)
+                playerVfx.StopCharging();
+            _prevPlayerState = currentPlayerState;
+
+            var currentAiState = _tutorial.AI.ctx.state;
+            if (_prevAiState == BattleState.Idle && currentAiState == BattleState.ElementCharging)
+                aiVfx.StartCharging(_tutorial.AI.ctx.chargingElement);
+            else if (_prevAiState == BattleState.ElementCharging && currentAiState == BattleState.FormCharging)
+                aiVfx.StartCharging(_tutorial.AI.ctx.confirmedElement);
+            else if ((_prevAiState == BattleState.ElementCharging || _prevAiState == BattleState.FormCharging)
+                     && currentAiState == BattleState.Idle)
+                aiVfx.StopCharging();
+            _prevAiState = currentAiState;
+
+            bool active = _tutorial.CurrentMissionData != null;
+            tutorialUIController.Refresh(
+                active ? _tutorial.Player : null,
+                active ? _tutorial.AI    : null);
         }
         
         if (Input.GetKeyDown(KeyCode.F1))
@@ -163,6 +203,7 @@ public class GameManager : MonoBehaviour
         dojoSelectPanel.SetActive(false);
         stage.SetActive(false);
         pauseMenuPanel.SetActive(false);
+        tutorialPanel.SetActive(false);
     }
     
     public void ShowDojoSelect()
@@ -173,6 +214,7 @@ public class GameManager : MonoBehaviour
         gameOverPanel.SetActive(false);
         dojoSelectPanel.SetActive(true);
         pauseMenuPanel.SetActive(false);
+        tutorialPanel.SetActive(false);
     }
 
     public void StartGame()
@@ -268,6 +310,38 @@ public class GameManager : MonoBehaviour
         if(_battle != null)
             _battle.RoundManager.RequestNextRound();
     }
+    public void StartTutorial()
+    {
+        _state = GameState.Tutorial;
+        mainMenuPanel.SetActive(false);
+        tutorialPanel.SetActive(true);
+        gamePanel.SetActive(false);
+        dojoSelectPanel.SetActive(false);
+        pauseMenuPanel.SetActive(false);
+        stage.SetActive(true);
+
+        var player = new CasterContext();
+        var ai = new AICaster();
+        _tutorial = new TutorialManager(player, ai, tutorialConfig);
+        tutorialUIController.Init(_tutorial, _recognizer, tutorialConfig.missions.Length);
+        _tutorial.Start();
+    }
+
+    public void StopTutorial()
+    {
+        playerVfx.StopCharging();
+        aiVfx.StopCharging();
+        tutorialUIController.Cleanup(_tutorial);
+        _tutorial = null;
+        ShowMainMenu();
+    }
+
+    public void OnTutorialClicked()     // 메인 메뉴: 수련
+    {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
+        StartTutorial();
+    }
+
     public void OnDojoBreakClicked()    // 메인 메뉴: 도장 깨기
     {   
         SoundManager.Instance.PlaySfx(SfxId.UiClick);

@@ -1,8 +1,7 @@
 using System;
-using UnityEngine;
 using static Constant;
 
-public class TutorialManager : MonoBehaviour
+public class TutorialManager
 {
     public event Action<TutorialMissionData> OnMissionChanged;      // 미션 시작/전환 시 호출
     public event Action<TutorialMissionData> OnMissionSucceeded;    // 미션 성공 시 호출 (피드백용)
@@ -15,11 +14,14 @@ public class TutorialManager : MonoBehaviour
     private AICaster _ai;
     
     // 현재 미션
-    public TutorialMissionData CurrentMissionData => 
-        (_currentIndex >= 0 && _currentIndex < _missions.Length) 
-            ? _missions[_currentIndex] 
+    public TutorialMissionData CurrentMissionData =>
+        (_currentIndex >= 0 && _currentIndex < _missions.Length)
+            ? _missions[_currentIndex]
             : null;
-    
+
+    public CasterContext Player => _player;
+    public AICaster AI => _ai;
+
     public bool IsCompleted => _currentIndex >= _missions.Length;
 
     public TutorialManager(CasterContext player, AICaster ai, TutorialConfig config)
@@ -63,11 +65,13 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 매 프레임 호출 - 현재 미션 성공 여부 체크
+    /// 매 프레임 호출 - AI 타이머 진행 + 현재 미션 성공 여부 체크
     /// </summary>
-    public void Update()
+    public void Update(float deltaTime)
     {
         if (CurrentMissionData == null) return;
+
+        _ai.Update(deltaTime);
 
         if (CheckMissionSuccess(CurrentMissionData))
         {
