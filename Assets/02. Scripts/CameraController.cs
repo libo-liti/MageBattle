@@ -49,4 +49,12 @@ public class CameraController : MonoBehaviour
         SwitchToThirdPerson();
         Invoke(nameof(OnThirdPersonComplete), thirdPersonDuration);
     }
+
+    // VFX 종류에 따라 동적으로 지속 시간 지정
+    public void ShowThirdPersonFor(float seconds)
+    {
+        CancelInvoke(nameof(OnThirdPersonComplete));
+        SwitchToThirdPerson();
+        Invoke(nameof(OnThirdPersonComplete), seconds);
+    }
 }

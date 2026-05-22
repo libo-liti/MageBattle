@@ -227,35 +227,159 @@ public class GameManager : MonoBehaviour
         stage.SetActive(true);
         pauseMenuPanel.SetActive(false);
 
+        // 이전 게임의 토스트 잔류 제거
+        if (uiController != null) uiController.HideToast();
+
         UnsubscribeFromBattle();
         _battle = new BattleManager(_currentRival);
         SubscribeToBattle();
+
+        // 페르소나 초기화 + 게임 시작 도발
+        if (PersonaManager.Instance != null)
+        {
+            PersonaManager.Instance.SetCurrentRival(_currentRival);
+            PersonaManager.Instance.TriggerPersona(PersonaManager.TRIG_GAME_START);
+        }
     }
 
     private void OnRoundResolved(RoundResult result)
     {
-        cameraController.ShowThirdPersonBriefly();
+        cameraController.ShowThirdPersonFor(CalcCamDuration(result));
         uiController.ShowToast(result);
-        
         HandlePostRoundVfx(result);
+    }
+
+    private float CalcCamDuration(RoundResult result)
+    {
+        var player = _battle.Player;
+        var ai     = _battle.AI.ctx;
+        float ft   = playerVfx.ProjectileFlightTime;
+
+        bool playerCounterSuccess = player.confirmedForm == HandPose.Special
+            && result.type == RoundResult.ResultType.Counter
+            && result.dmgDealtToAi > result.dmgReceived;
+
+        bool aiCounterSuccess = ai.confirmedForm == HandPose.Special
+            && result.type == RoundResult.ResultType.Counter
+            && result.dmgReceived > result.dmgDealtToAi;
+
+        // Counter 성공: AI투사체(ft) + 흡수대기(0.3s) + 반사투사체(ft) + 여유(0.6s)
+        if (playerCounterSuccess || aiCounterSuccess)
+            return ft * 2f + 0.3f + 0.6f;
+
+        // 일반 공격 or 쉴드 히트: 투사체 비행(ft) + 여유(0.6s)
+        bool anyProjectile =
+            (player.confirmedForm == HandPose.Attack || player.confirmedForm == HandPose.Special)
+         || (ai.confirmedForm    == HandPose.Attack || ai.confirmedForm    == HandPose.Special);
+        if (anyProjectile)
+            return ft + 0.6f;
+
+        // Defense만 or 아무 공격 없음
+        return 1.2f;
     }
 
     private void HandlePostRoundVfx(RoundResult result)
     {
-        bool playerFired = _battle.Player.confirmedElement != HandPose.Unknown
-                           && _battle.Player.confirmedForm != HandPose.Defense;
-        bool aiFired = _battle.AI.ctx.confirmedElement != HandPose.Unknown
-                       && _battle.AI.ctx.confirmedForm != HandPose.Defense;
-        
-        if (playerFired)
-            playerVfx.Fire(_battle.Player.confirmedElement, result.dmgDealtToAi > 0);
-        else
-            playerVfx.StopCharging();
-    
-        if (aiFired)
-            aiVfx.Fire(_battle.AI.ctx.confirmedElement, result.dmgReceived > 0);
-        else
-            aiVfx.StopCharging();
+        var player = _battle.Player;
+        var ai     = _battle.AI.ctx;
+
+        bool playerAttacks = player.confirmedElement != HandPose.Unknown
+                             && player.confirmedForm == HandPose.Attack;
+        bool playerDefends = player.confirmedForm == HandPose.Defense;
+        bool playerSpecial = player.confirmedForm == HandPose.Special;
+
+        bool aiAttacks = ai.confirmedElement != HandPose.Unknown
+                         && ai.confirmedForm == HandPose.Attack;
+        bool aiDefends = ai.confirmedForm == HandPose.Defense;
+        bool aiSpecial = ai.confirmedForm == HandPose.Special;
+
+        bool playerCounterSuccess = playerSpecial
+            && result.type == RoundResult.ResultType.Counter
+            && result.dmgDealtToAi > result.dmgReceived;
+
+        bool aiCounterSuccess = aiSpecial
+            && result.type == RoundResult.ResultType.Counter
+            && result.dmgReceived > result.dmgDealtToAi;
+
+        playerVfx.StopCharging();
+        aiVfx.StopCharging();
+
+        // ── 쉴드는 투사체보다 먼저 표시 ──────────────────────
+        if (playerDefends) playerVfx.ShowShield(player.confirmedElement);
+        if (aiDefends)     aiVfx.ShowShield(ai.confirmedElement);
+
+        bool collisionHandled = false;
+
+        // ── 플레이어 VFX ──────────────────────────────────────
+        if (playerAttacks)
+        {
+            if (aiDefends)
+            {
+                playerVfx.FireAtShield(player.confirmedElement, aiVfx);
+            }
+            else if (aiAttacks)
+            {
+                // 양쪽 모두 공격 — 원소 상성에 따라 충돌 처리
+                float mult = DamageCalculator.GetElementMultiplier(
+                    player.confirmedElement, ai.confirmedElement);
+
+                if (mult == 0f)
+                {
+                    // 같은 원소 → 양쪽 중간 상쇄
+                    playerVfx.FireCancelled(player.confirmedElement);
+                    aiVfx.FireCancelled(ai.confirmedElement);
+                }
+                else if (mult > 1f)
+                {
+                    // 플레이어 강함 → AI 투사체 중간 소멸, 플레이어 계속
+                    aiVfx.FireCancelled(ai.confirmedElement);
+                    playerVfx.Fire(player.confirmedElement, result.dmgDealtToAi > 0);
+                }
+                else if (mult < 1f)
+                {
+                    // AI 강함 → 플레이어 투사체 중간 소멸, AI 계속
+                    playerVfx.FireCancelled(player.confirmedElement);
+                    aiVfx.Fire(ai.confirmedElement, result.dmgReceived > 0);
+                }
+                else
+                {
+                    // 무관 (1.0×) → 양쪽 통과
+                    playerVfx.Fire(player.confirmedElement, result.dmgDealtToAi > 0);
+                    aiVfx.Fire(ai.confirmedElement, result.dmgReceived > 0);
+                }
+
+                collisionHandled = true;
+            }
+            else
+            {
+                playerVfx.Fire(player.confirmedElement, result.dmgDealtToAi > 0);
+            }
+        }
+        else if (playerSpecial)
+        {
+            if (playerCounterSuccess)
+                playerVfx.ShowCounterAndReflect(player.confirmedElement);
+            else
+                playerVfx.ShowCounterFail(player.confirmedElement);
+        }
+
+        // ── AI VFX ────────────────────────────────────────────
+        if (aiAttacks && !collisionHandled)
+        {
+            if (playerDefends)
+                aiVfx.FireAtShield(ai.confirmedElement, playerVfx);
+            else if (playerCounterSuccess)
+                aiVfx.Fire(ai.confirmedElement, false);  // Counter가 흡수
+            else
+                aiVfx.Fire(ai.confirmedElement, result.dmgReceived > 0);
+        }
+        else if (aiSpecial)
+        {
+            if (aiCounterSuccess)
+                aiVfx.ShowCounterAndReflect(ai.confirmedElement);
+            else
+                aiVfx.ShowCounterFail(ai.confirmedElement);
+        }
     }
 
     public void ShowGameOver()
@@ -265,6 +389,10 @@ public class GameManager : MonoBehaviour
 
         bool playerWon = _battle.RoundManager.AiHp <= 0;
         resultText.text = playerWon ? "승리!" : "패배...";
+
+        // 페르소나 트리거: 라이벌의 마지막 대사
+        PersonaManager.Instance?.TriggerPersona(
+            playerWon ? PersonaManager.TRIG_AI_DEFEAT : PersonaManager.TRIG_AI_VICTORY);
 
         if (_currentRival != null)
         {

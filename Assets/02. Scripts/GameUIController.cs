@@ -38,7 +38,54 @@ public class GameUIController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI toastValue;
     [SerializeField] private Outline toastOutline;
 
+    [Header("Persona Toast (라이벌 도발)")]
+    [SerializeField] private GameObject personaToastObject;
+    [SerializeField] private CanvasGroup personaToastCanvasGroup;
+    [SerializeField] private TextMeshProUGUI personaToastText;
+
     private Sequence _currentToastSequence;
+    private Sequence _currentPersonaSequence;
+
+    private void OnEnable()
+    {
+        if (PersonaManager.Instance != null)
+            PersonaManager.Instance.OnTauntFired += ShowPersonaToast;
+    }
+
+    private void OnDisable()
+    {
+        if (PersonaManager.Instance != null)
+            PersonaManager.Instance.OnTauntFired -= ShowPersonaToast;
+    }
+
+    public void ShowPersonaToast(string message)
+    {
+        if (personaToastObject == null || personaToastCanvasGroup == null || personaToastText == null)
+            return;
+
+        _currentPersonaSequence?.Kill();
+        personaToastObject.SetActive(true);
+        personaToastText.text = message;
+        personaToastCanvasGroup.alpha = 0f;
+
+        _currentPersonaSequence = DOTween.Sequence()
+            .Append(personaToastCanvasGroup.DOFade(1f, 0.25f))
+            .AppendInterval(2.5f)
+            .Append(personaToastCanvasGroup.DOFade(0f, 0.4f))
+            .OnComplete(() =>
+            {
+                personaToastObject.SetActive(false);
+                _currentPersonaSequence = null;
+            });
+    }
+
+    public void HidePersonaToast()
+    {
+        _currentPersonaSequence?.Kill();
+        _currentPersonaSequence = null;
+        if (personaToastCanvasGroup != null) personaToastCanvasGroup.alpha = 0f;
+        if (personaToastObject     != null) personaToastObject.SetActive(false);
+    }
     
     public void Refresh(BattleManager battle, HandRecognizer recognizer)
     {
@@ -219,9 +266,19 @@ public class GameUIController : MonoBehaviour
     public void ShowToast(RoundResult result)
     {
         _currentToastSequence?.Kill();
-        
+
         SetupToastVisual(result);
         PlayToastAnimation();
+    }
+
+    // 게임 시작 시 이전 게임의 토스트 잔류 제거
+    public void HideToast()
+    {
+        _currentToastSequence?.Kill();
+        _currentToastSequence = null;
+        if (toastCanvasGroup != null) toastCanvasGroup.alpha = 0f;
+        if (toastObject     != null) toastObject.SetActive(false);
+        HidePersonaToast();
     }
 
     private void SetupToastVisual(RoundResult result)

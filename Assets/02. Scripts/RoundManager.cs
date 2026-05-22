@@ -127,7 +127,18 @@ public class RoundManager
             result.type = RoundResult.ResultType.Blocked;
         else
             result.type = RoundResult.ResultType.Normal;
-        
+
+        // ── 페르소나 트리거 ──────────────────────────────
+        // AI 카운터 성공
+        if (aiCounteredFlag)
+            PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_AI_COUNTER_SUCCESS);
+
+        // 플레이어가 같은 원소 연속 사용 (Attack 한정)
+        if (_player.confirmedForm == HandPose.Attack
+            && _player.confirmedElement == _prevPlayerEl
+            && _prevPlayerEl != HandPose.Unknown)
+            PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_PLAYER_SAME_ELEMENT);
+
         OnRoundResolved?.Invoke(result);
         
         Debug.Log("=== 라운드 결과 ===");
@@ -149,6 +160,10 @@ public class RoundManager
         }
         else
         {
+            // 플레이어 HP 30% 이하 (게임 오버 아닐 때만)
+            if (_playerHp <= 30)
+                PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_PLAYER_LOW_HP);
+
             ResetCasters();
             _roundActive = false;
         }
@@ -156,7 +171,8 @@ public class RoundManager
 
     private void ResolvePlayerFailed()
     {
-        
+        PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_PLAYER_CAST_FAIL);
+
         Debug.Log("=== 라운드 결과: Player 영창 실패 ===");
 
         int aiDmg = Calculate(_ai.ctx.confirmedElement, _ai.ctx.confirmedForm,
@@ -187,11 +203,14 @@ public class RoundManager
         }
         else
         {
+            if (_playerHp <= 30)
+                PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_PLAYER_LOW_HP);
+
             ResetCasters();
             _roundActive = false;
         }
     }
-    
+
     private void ResolveAiFailed()
     {
         Debug.Log("=== 라운드 결과: AI 영창 실패 ===");
