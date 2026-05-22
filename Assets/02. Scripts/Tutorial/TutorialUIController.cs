@@ -24,10 +24,18 @@ public class TutorialUIController : MonoBehaviour
     [SerializeField] private GameObject successToast;
     [SerializeField] private CanvasGroup successCanvasGroup;
 
+    [Header("Failure Toast")]
+    [SerializeField] private GameObject failureToast;
+    [SerializeField] private CanvasGroup failureCanvasGroup;
+
+    [Header("Completion Panel")]
+    [SerializeField] private GameObject completionPanel;
+
     private HandRecognizer _recognizer;
     private int _currentMissionIndex;
     private int _totalMissions;
     private Sequence _toastSequence;
+    private Sequence _failureSequence;
 
 
     public void Init(TutorialManager tutorial, HandRecognizer recognizer, int totalMissions)
@@ -36,18 +44,21 @@ public class TutorialUIController : MonoBehaviour
         _totalMissions = totalMissions;
         _currentMissionIndex = 0;
 
-        tutorial.OnMissionChanged  += OnMissionChanged;
+        tutorial.OnMissionChanged   += OnMissionChanged;
         tutorial.OnMissionSucceeded += OnMissionSucceeded;
+        tutorial.OnMissionFailed    += OnMissionFailed;
         tutorial.OnTutorialCompleted += OnTutorialCompleted;
     }
 
     public void Cleanup(TutorialManager tutorial)
     {
         if (tutorial == null) return;
-        tutorial.OnMissionChanged  -= OnMissionChanged;
+        tutorial.OnMissionChanged   -= OnMissionChanged;
         tutorial.OnMissionSucceeded -= OnMissionSucceeded;
+        tutorial.OnMissionFailed    -= OnMissionFailed;
         tutorial.OnTutorialCompleted -= OnTutorialCompleted;
         _toastSequence?.Kill();
+        _failureSequence?.Kill();
     }
 
     public void Refresh(CasterContext player, AICaster ai)
@@ -80,10 +91,22 @@ public class TutorialUIController : MonoBehaviour
         ShowSuccessToast();
     }
 
+    private void OnMissionFailed(TutorialMissionData data)
+    {
+        ShowFailureToast();
+    }
+
     private void OnTutorialCompleted()
     {
-        instructionText.text = "수련 완료!\n모든 기술을 익혔습니다.";
         missionProgressText.text = $"{_totalMissions} / {_totalMissions}";
+        if (completionPanel != null)
+            completionPanel.SetActive(true);
+    }
+
+    // 완료 패널의 "메뉴로 돌아가기" 버튼에서 호출
+    public void OnCompletionExitClicked()
+    {
+        GameManager.Instance.StopTutorial();
     }
 
     // ── 매 프레임 갱신 ─────────────────────────────────────────
@@ -153,6 +176,20 @@ public class TutorialUIController : MonoBehaviour
             .AppendInterval(0.8f)
             .Append(successCanvasGroup.DOFade(0f, 0.3f))
             .OnComplete(() => successToast.SetActive(false));
+    }
+
+    private void ShowFailureToast()
+    {
+        if (failureToast == null) return;
+        _failureSequence?.Kill();
+        failureToast.SetActive(true);
+        failureCanvasGroup.alpha = 0f;
+
+        _failureSequence = DOTween.Sequence()
+            .Append(failureCanvasGroup.DOFade(1f, 0.2f))
+            .AppendInterval(0.9f)
+            .Append(failureCanvasGroup.DOFade(0f, 0.3f))
+            .OnComplete(() => failureToast.SetActive(false));
     }
 
     private void UpdateEnemyInfo(AICaster ai)
