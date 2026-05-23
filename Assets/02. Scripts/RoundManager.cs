@@ -99,13 +99,28 @@ public class RoundManager
             pDmg = 0;
         }
 
+        // 무관(1.0×): 양쪽 독립 적용 (둘 다 데미지)
+        // 강함/약함/같음: 차감 방식 (강한 쪽이 차이만큼 일방 적용)
+        float playerMult = GetElementMultiplier(_player.confirmedElement, _ai.ctx.confirmedElement);
+        bool isNeutral = (playerMult == 1.0f)
+            && (_player.confirmedElement != HandPose.Unknown)
+            && (_ai.ctx.confirmedElement != HandPose.Unknown);
+
         int finalPDmg = 0;
         int finalAiDmg = 0;
 
-        if (pDmg > aiDmg)
-            finalPDmg = pDmg - aiDmg;
+        if (isNeutral)
+        {
+            finalPDmg = pDmg;
+            finalAiDmg = aiDmg;
+        }
         else
-            finalAiDmg = aiDmg - pDmg;
+        {
+            if (pDmg > aiDmg)
+                finalPDmg = pDmg - aiDmg;
+            else
+                finalAiDmg = aiDmg - pDmg;
+        }
 
         _aiHp -= finalPDmg;
         _playerHp -= finalAiDmg;
