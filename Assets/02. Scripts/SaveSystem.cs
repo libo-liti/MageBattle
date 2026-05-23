@@ -25,7 +25,6 @@ public static class SaveSystem
             {
                 string json = File.ReadAllText(SavePath);
                 _cachedData = JsonUtility.FromJson<SaveData>(json);
-                Debug.Log($"[Save] Loaded from {SavePath}");
             }
             catch (Exception e)
             {
@@ -36,7 +35,6 @@ public static class SaveSystem
         else
         {
             _cachedData = new SaveData();
-            Debug.Log("[Save] No save file, created new");
         }
     }
 
@@ -49,7 +47,6 @@ public static class SaveSystem
         {
             string json = JsonUtility.ToJson(_cachedData, true);
             File.WriteAllText(SavePath, json);
-            Debug.Log($"[Save] Saved to {SavePath}");
         }
         catch (Exception e)
         {
@@ -84,13 +81,11 @@ public static class SaveSystem
         if(!Data.defeatedRivalIds.Contains("apprentice")) Data.defeatedRivalIds.Add("apprentice");
         if(!Data.defeatedRivalIds.Contains("master")) Data.defeatedRivalIds.Add("master");
         Save();
-        Debug.Log("[Save] 모든 라이벌 해제");
     }
 
     public static void ResetAll()
     {
         _cachedData = new SaveData();
-        if(File.Exists(SavePath)) File.Delete(SavePath);
-        Debug.Log("[Save] 진행 초기화");
+        if (File.Exists(SavePath)) File.Delete(SavePath);
     }
 }

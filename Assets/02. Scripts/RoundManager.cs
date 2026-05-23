@@ -155,12 +155,6 @@ public class RoundManager
             PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_PLAYER_SAME_ELEMENT);
 
         OnRoundResolved?.Invoke(result);
-        
-        Debug.Log("=== 라운드 결과 ===");
-        Debug.Log($"Player: {_player.confirmedElement}+{_player.confirmedForm} (위력 {pDmg})");
-        Debug.Log($"AI: {_ai.ctx.confirmedElement}+{_ai.ctx.confirmedForm} (위력 {aiDmg})");
-        Debug.Log($"상쇄 후: Player가 AI에게 {finalPDmg}, AI가 Player에게 {finalAiDmg}");
-        Debug.Log($"HP: Player {_playerHp} / AI {_aiHp}");
 
         // 같은 원소 연속 사용 시 -30% (직전 라운드와 비교, 1라운드 텀 두면 회복)
         if(_player.confirmedForm == HandPose.Attack)
@@ -171,7 +165,6 @@ public class RoundManager
         if (_playerHp <= 0 || _aiHp <= 0)
         {
             _gameOver = true;
-            Debug.Log(_playerHp <= 0 ? "패배..." : "승리!");
         }
         else
         {
@@ -188,18 +181,11 @@ public class RoundManager
     {
         PersonaManager.Instance?.TriggerPersona(PersonaManager.TRIG_PLAYER_CAST_FAIL);
 
-        Debug.Log("=== 라운드 결과: Player 영창 실패 ===");
-
         int aiDmg = Calculate(_ai.ctx.confirmedElement, _ai.ctx.confirmedForm,
             HandPose.Unknown, HandPose.Unknown, _prevAiEl);
-        
-        Debug.Log($"AI: {_ai.ctx.confirmedElement}+{_ai.ctx.confirmedForm} (위력 {aiDmg})");
-        Debug.Log($"Player 무방비 → {aiDmg} 받음");
 
         _playerHp -= aiDmg;
-        
-        Debug.Log($"HP: Player {_playerHp} / AI {_aiHp}");
-        
+
         var result = new RoundResult
         {
             type = RoundResult.ResultType.Failed,
@@ -214,7 +200,6 @@ public class RoundManager
         if (_playerHp <= 0)
         {
             _gameOver = true;
-            Debug.Log("패배...");
         }
         else
         {
@@ -228,13 +213,8 @@ public class RoundManager
 
     private void ResolveAiFailed()
     {
-        Debug.Log("=== 라운드 결과: AI 영창 실패 ===");
-
         int pDmg = Calculate(_player.confirmedElement, _player.confirmedForm,
             HandPose.Unknown, HandPose.Unknown, _prevPlayerEl);
-    
-        Debug.Log($"Player: {_player.confirmedElement}+{_player.confirmedForm} (위력 {pDmg})");
-        Debug.Log($"AI 무방비 → {pDmg} 받음");
 
         _aiHp -= pDmg;
     
@@ -262,8 +242,6 @@ public class RoundManager
 
     private void ResolveBothFailed()
     {
-        Debug.Log("=== 라운드 결과: 둘 다 영창 실패 ===");
-    
         var result = new RoundResult
         {
             type = RoundResult.ResultType.Blocked,

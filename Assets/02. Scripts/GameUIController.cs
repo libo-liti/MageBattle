@@ -52,8 +52,6 @@ public class GameUIController : MonoBehaviour
     {
         if (PersonaManager.Instance != null)
             PersonaManager.Instance.OnTauntFired += ShowPersonaToast;
-        else
-            Debug.LogWarning("[GameUIController] PersonaManager.Instance가 null — OnTauntFired 구독 실패");
     }
 
     private void OnDisable()

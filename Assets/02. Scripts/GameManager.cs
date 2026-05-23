@@ -40,7 +40,9 @@ public class GameManager : MonoBehaviour
     [Header("UI Controller")]
     [SerializeField] private GameUIController uiController;
 
+#if UNITY_EDITOR
     private bool _showDebug = false;
+#endif
     private bool _prevState;
     
     private HandRecognizer _recognizer;
@@ -157,12 +159,14 @@ public class GameManager : MonoBehaviour
                 active ? _tutorial.AI    : null);
         }
         
+#if UNITY_EDITOR
         if (Input.GetKeyDown(KeyCode.F1))
             _showDebug = !_showDebug;
-        if(Input.GetKeyDown(KeyCode.F2))
+        if (Input.GetKeyDown(KeyCode.F2))
             SaveSystem.UnlockAll();
-        if(Input.GetKeyDown(KeyCode.F3))
+        if (Input.GetKeyDown(KeyCode.F3))
             SaveSystem.ResetAll();
+#endif
     }
 
     public void PauseGame()
@@ -497,14 +501,13 @@ public class GameManager : MonoBehaviour
         ShowMainMenu();
     }
     
+#if UNITY_EDITOR
     private void OnGUI()
     {
-        if(_showDebug)
+        if (_showDebug)
             DrawFullDebug();
-        // else
-        //     DrawMinimalUI();
     }
-    
+
     private void DrawMinimalUI()
     {
         GUIStyle bigStyle = new GUIStyle(GUI.skin.label);
@@ -609,5 +612,6 @@ public class GameManager : MonoBehaviour
             GUI.Label(new Rect(x, y, labelWidth, lineHeight), $"=== GAME OVER ===");
         }
     }
+#endif
 
 }

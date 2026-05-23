@@ -76,8 +76,6 @@ public class PersonaManager : MonoBehaviour
 
         if (string.IsNullOrEmpty(message)) return;
 
-        Debug.Log($"[Persona] {triggerId} → {(fromLLM ? "LLM" : "FALLBACK")}: {message}");
-
         OnTauntFired?.Invoke(message);
     }
 
@@ -86,20 +84,11 @@ public class PersonaManager : MonoBehaviour
     /// </summary>
     private async Task<string> TryGetLLMResponse(string triggerId)
     {
-        if (llmCharacter == null)
-        {
-            Debug.LogWarning("[PersonaManager] llmCharacter가 null — Inspector에서 LLMCharacter 컴포넌트를 연결하세요");
-            return null;
-        }
-        if (_currentRival == null || string.IsNullOrEmpty(_currentRival.personaPrompt))
-        {
-            Debug.LogWarning("[PersonaManager] personaPrompt가 비어있음 — RivalData에 페르소나 프롬프트를 입력하세요");
-            return null;
-        }
+        if (llmCharacter == null) return null;
+        if (_currentRival == null || string.IsNullOrEmpty(_currentRival.personaPrompt)) return null;
 
         try
         {
-            Debug.Log($"[PersonaManager] LLM 호출 시작 ({triggerId}), 타임아웃: {llmTimeoutSec}s");
             llmCharacter.SetPrompt(BuildSystemPrompt(triggerId), clearChat: true);
 
             var chatTask = llmCharacter.Chat(GetTriggerQuery(triggerId), null, null, addToHistory: false);
@@ -107,20 +96,13 @@ public class PersonaManager : MonoBehaviour
 
             var finished = await Task.WhenAny(chatTask, timeoutTask);
             if (finished == chatTask)
-            {
-                var result = CleanResponse(await chatTask);
-                Debug.Log($"[PersonaManager] LLM 응답 수신: \"{result}\"");
-                return result;
-            }
+                return CleanResponse(await chatTask);
 
-            // 타임아웃
-            Debug.LogWarning($"[PersonaManager] LLM 타임아웃 ({llmTimeoutSec}s 초과) — FALLBACK으로 전환");
             llmCharacter.CancelRequests();
             return null;
         }
-        catch (Exception e)
+        catch
         {
-            Debug.LogWarning($"[PersonaManager] LLM 호출 예외: {e.Message}");
             return null;
         }
     }
