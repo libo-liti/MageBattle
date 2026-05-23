@@ -13,6 +13,10 @@ public class AICaster
     private float _aiTimeMin = 4f;
     private float _aiTimeMax = 7f;
 
+    private float _attackWeight = 1f;
+    private float _defenseWeight = 1f;
+    private float _specialWeight = 1f;
+
     public AICaster()
     {
         ctx = new CasterContext();
@@ -75,6 +79,9 @@ public class AICaster
     {
         _aiTimeMin = rival.aiTimeMin;
         _aiTimeMax = rival.aiTimeMax;
+        _attackWeight = rival.attackWeight;
+        _defenseWeight = rival.defenseWeight;
+        _specialWeight = rival.specialWeight;
     }
 
     private HandPose RandomElement()
@@ -85,8 +92,17 @@ public class AICaster
 
     private HandPose RandomForm()
     {
-        HandPose[] forms = { HandPose.Attack, HandPose.Defense, HandPose.Special };
-        return forms[Random.Range(0, 3)];
+        float total = _attackWeight + _defenseWeight + _specialWeight;
+        if (total <= 0f)
+        {
+            HandPose[] forms = { HandPose.Attack, HandPose.Defense, HandPose.Special };
+            return forms[Random.Range(0, 3)];
+        }
+
+        float roll = Random.value * total;
+        if (roll < _attackWeight) return HandPose.Attack;
+        if (roll < _attackWeight + _defenseWeight) return HandPose.Defense;
+        return HandPose.Special;
     }
 
     public void Reset()

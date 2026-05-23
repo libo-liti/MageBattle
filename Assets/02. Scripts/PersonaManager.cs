@@ -1,15 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
+using LLMUnity;
 using UnityEngine;
 
 /// <summary>
 /// 라이벌 도발 메시지 관리.
-/// 현재는 JSON 폴백 대사만 사용. 추후 LLM for Unity 통합 시 LLM 호출 → 실패 시 폴백 순서로 동작.
+/// LLM(LLM for Unity) 호출 → 실패/타임아웃 시 JSON 폴백 대사로 자동 전환.
 /// </summary>
 public class PersonaManager : MonoBehaviour
 {
     public static PersonaManager Instance { get; private set; }
+
+    [Header("LLM Settings")]
+    [SerializeField] private LLMCharacter llmCharacter;
+    [SerializeField] private float llmTimeoutSec = 10f;   // 첫 추론은 느릴 수 있음 (기본 10초)
+    [SerializeField] private int maxResponseLength = 50;
 
     // 라이벌 → 트리거 → 대사 리스트
     private readonly Dictionary<string, TauntData> _tauntsByRival = new Dictionary<string, TauntData>();
@@ -46,19 +53,120 @@ public class PersonaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 트리거 발동 — 현재 라이벌의 대사를 무작위로 선택해 OnTauntFired 이벤트로 전파.
+    /// 트리거 발동 — LLM 호출 → 실패 시 JSON 폴백.
     /// 같은 트리거가 한 게임에 두 번 발동되면 무시.
     /// </summary>
-    public void TriggerPersona(string triggerId)
+    public async void TriggerPersona(string triggerId)
     {
         if (_currentRival == null || string.IsNullOrEmpty(triggerId)) return;
         if (_firedTriggersThisGame.Contains(triggerId)) return;
         _firedTriggersThisGame.Add(triggerId);
 
-        string message = GetFallbackTaunt(_currentRival, triggerId);
+        // game_start는 LLM 서버 콜드스타트 대기 (첫 추론 전 3초 여유)
+        if (triggerId == TRIG_GAME_START)
+            await Task.Delay(3000);
+
+        // 1) LLM 호출 시도
+        string message = await TryGetLLMResponse(triggerId);
+        bool fromLLM = !string.IsNullOrEmpty(message);
+
+        // 2) LLM 실패 → 폴백
+        if (!fromLLM)
+            message = GetFallbackTaunt(_currentRival, triggerId);
+
         if (string.IsNullOrEmpty(message)) return;
 
+        Debug.Log($"[Persona] {triggerId} → {(fromLLM ? "LLM" : "FALLBACK")}: {message}");
+
         OnTauntFired?.Invoke(message);
+    }
+
+    /// <summary>
+    /// LLM 비동기 호출 — 타임아웃 초과 또는 실패 시 null 반환 (폴백으로 전환됨).
+    /// </summary>
+    private async Task<string> TryGetLLMResponse(string triggerId)
+    {
+        if (llmCharacter == null)
+        {
+            Debug.LogWarning("[PersonaManager] llmCharacter가 null — Inspector에서 LLMCharacter 컴포넌트를 연결하세요");
+            return null;
+        }
+        if (_currentRival == null || string.IsNullOrEmpty(_currentRival.personaPrompt))
+        {
+            Debug.LogWarning("[PersonaManager] personaPrompt가 비어있음 — RivalData에 페르소나 프롬프트를 입력하세요");
+            return null;
+        }
+
+        try
+        {
+            Debug.Log($"[PersonaManager] LLM 호출 시작 ({triggerId}), 타임아웃: {llmTimeoutSec}s");
+            llmCharacter.SetPrompt(BuildSystemPrompt(triggerId), clearChat: true);
+
+            var chatTask = llmCharacter.Chat(GetTriggerQuery(triggerId), null, null, addToHistory: false);
+            var timeoutTask = Task.Delay((int)(llmTimeoutSec * 1000));
+
+            var finished = await Task.WhenAny(chatTask, timeoutTask);
+            if (finished == chatTask)
+            {
+                var result = CleanResponse(await chatTask);
+                Debug.Log($"[PersonaManager] LLM 응답 수신: \"{result}\"");
+                return result;
+            }
+
+            // 타임아웃
+            Debug.LogWarning($"[PersonaManager] LLM 타임아웃 ({llmTimeoutSec}s 초과) — FALLBACK으로 전환");
+            llmCharacter.CancelRequests();
+            return null;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[PersonaManager] LLM 호출 예외: {e.Message}");
+            return null;
+        }
+    }
+
+    private string BuildSystemPrompt(string triggerId)
+    {
+        return _currentRival.personaPrompt
+             + "\n\n[응답 형식 규칙]\n"
+             + "- 한국어로 1-2문장만, 최대 50자\n"
+             + "- 따옴표·인용·해설·이모티콘 없이 대사만 출력\n"
+             + "- 현재 상황: " + GetTriggerDescription(triggerId);
+    }
+
+    private string GetTriggerQuery(string triggerId)
+    {
+        return "지금 한마디 해줘.";
+    }
+
+    private string GetTriggerDescription(string triggerId)
+    {
+        switch (triggerId)
+        {
+            case TRIG_GAME_START:          return "도전자가 결투를 신청해 마주섰다";
+            case TRIG_AI_COUNTER_SUCCESS:  return "내가 카운터(반사)로 상대 마법을 되돌렸다";
+            case TRIG_AI_VICTORY:          return "내가 상대를 쓰러뜨리고 승리했다";
+            case TRIG_AI_DEFEAT:           return "내가 상대에게 패배했다";
+            case TRIG_PLAYER_SAME_ELEMENT: return "상대가 같은 원소를 또 사용해서 약해진 공격을 했다";
+            case TRIG_PLAYER_CAST_FAIL:    return "상대가 영창에 실패해 무방비가 됐다";
+            case TRIG_PLAYER_LOW_HP:       return "상대의 HP가 30% 이하로 위태롭다";
+            default:                        return "결투 중";
+        }
+    }
+
+    private string CleanResponse(string response)
+    {
+        if (string.IsNullOrWhiteSpace(response)) return null;
+
+        response = response.Replace("\n", " ").Replace("\r", " ")
+                           .Replace("\"", "").Replace("'", "")
+                           .Trim();
+
+        if (response.Length == 0) return null;
+        if (response.Length > maxResponseLength)
+            response = response.Substring(0, maxResponseLength).TrimEnd() + "…";
+
+        return response;
     }
 
     /// <summary>
@@ -102,7 +210,7 @@ public class PersonaManager : MonoBehaviour
         }
     }
 
-    // ── JSON 데이터 구조 (JsonUtility는 Dictionary 직접 못 다룸) ─────────
+    // ── JSON 데이터 구조 ─────────────────────────────────────────────────
 
     private class TauntData
     {

@@ -46,10 +46,14 @@ public class GameUIController : MonoBehaviour
     private Sequence _currentToastSequence;
     private Sequence _currentPersonaSequence;
 
-    private void OnEnable()
+    // OnEnable 대신 Start 사용: PersonaManager.Awake()가 먼저 실행된 뒤 구독해야
+    // 씬 시작 시 Instance가 null이어서 구독 누락되는 문제 방지
+    private void Start()
     {
         if (PersonaManager.Instance != null)
             PersonaManager.Instance.OnTauntFired += ShowPersonaToast;
+        else
+            Debug.LogWarning("[GameUIController] PersonaManager.Instance가 null — OnTauntFired 구독 실패");
     }
 
     private void OnDisable()

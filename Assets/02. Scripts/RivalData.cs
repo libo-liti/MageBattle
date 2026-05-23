@@ -14,6 +14,11 @@ public class RivalData : ScriptableObject
     [Header("AI 설정")]
     public float aiTimeMin = 4f;
     public float aiTimeMax = 7f;
+
+    [Header("AI 형태 선호도 (가중치, 합이 1일 필요 없음)")]
+    [Min(0f)] public float attackWeight = 1f;
+    [Min(0f)] public float defenseWeight = 1f;
+    [Min(0f)] public float specialWeight = 1f;
     
     [Header("LLM 페르소나 (Day 3~4)")]
     [TextArea(5, 12)]
