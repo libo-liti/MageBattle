@@ -90,6 +90,7 @@ public class RivalCard : MonoBehaviour
     // Inspector onClick에 연결
     public void OnChallengeClicked()
     {
+        SoundManager.Instance?.PlaySfx(Constant.SfxId.UiClick);
         GameManager.Instance.StartGameWithRival(rivalData);
     }
 }

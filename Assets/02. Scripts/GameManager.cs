@@ -37,6 +37,17 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TutorialConfig tutorialConfig;
     [SerializeField] private TutorialUIController tutorialUIController;
 
+    [Header("Characters")]
+    [SerializeField] private GameObject charPlayer;         // FBX 모델 (일반 게임)
+    [SerializeField] private GameObject charPlayerCapsule;  // 캡슐 (수련 모드, 사용 안 함 — 1인칭이라 안 보임)
+    [SerializeField] private GameObject charEnemyCapsule;   // 적 캡슐 (수련 모드 허수아비)
+    [SerializeField] private GameObject charApprentice;
+    [SerializeField] private GameObject charMaster;
+    [SerializeField] private GameObject charArchmage;
+
+    [Header("Rival Order (견습 → 사범 → 마탑주 순서로 드래그)")]
+    [SerializeField] private RivalData[] rivalOrder;
+
     [Header("UI Controller")]
     [SerializeField] private GameUIController uiController;
 
@@ -96,10 +107,16 @@ public class GameManager : MonoBehaviour
             }
             else if (_prevPlayerState == BattleState.ElementCharging && currentPlayerState == BattleState.FormCharging)
             {
-                // Element 확정 — 색 변경
+                // Element 확정 — 색 변경 + 사운드
                 playerVfx.StartCharging(_battle.Player.confirmedElement);
+                SoundManager.Instance?.PlaySfx(SfxId.ElementConfirmed);
             }
-            else if ((_prevPlayerState == BattleState.ElementCharging || _prevPlayerState == BattleState.FormCharging) 
+            else if (_prevPlayerState == BattleState.FormCharging && currentPlayerState == BattleState.Casting)
+            {
+                // Form 확정 — 사운드
+                SoundManager.Instance?.PlaySfx(SfxId.FormConfirmed);
+            }
+            else if ((_prevPlayerState == BattleState.ElementCharging || _prevPlayerState == BattleState.FormCharging)
                      && currentPlayerState == BattleState.Idle)
             {
                 // 영창 취소 — 손 효과 끔
@@ -183,11 +200,13 @@ public class GameManager : MonoBehaviour
     
     public void OnResumeClicked()
     {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
         ResumeGame();
     }
 
     public void OnPauseMenuClicked()
     {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
         pauseMenuPanel.SetActive(false);
         ShowMainMenu();
     }
@@ -195,12 +214,21 @@ public class GameManager : MonoBehaviour
     public void StartGameWithRival(RivalData rival)
     {
         _currentRival = rival;
+        SwapEnemyCharacter(rival.rivalId);
         StartGame();
+    }
+
+    private void SwapEnemyCharacter(string rivalId)
+    {
+        if (charApprentice) charApprentice.SetActive(rivalId == "apprentice");
+        if (charMaster)     charMaster.SetActive(rivalId == "master");
+        if (charArchmage)   charArchmage.SetActive(rivalId == "archmage");
     }
 
     public void ShowMainMenu()
     {
         _state = GameState.MainMenu;
+        SoundManager.Instance?.PlayBgm(BgmId.MainMenu);
         mainMenuPanel.SetActive(true);
         gamePanel.SetActive(false);
         gameOverPanel.SetActive(false);
@@ -231,6 +259,9 @@ public class GameManager : MonoBehaviour
         stage.SetActive(true);
         pauseMenuPanel.SetActive(false);
 
+        // BGM 전환
+        SoundManager.Instance?.PlayBgm(BgmId.Battle);
+
         // 이전 게임의 토스트 잔류 제거
         if (uiController != null) uiController.HideToast();
 
@@ -251,6 +282,30 @@ public class GameManager : MonoBehaviour
         cameraController.ShowThirdPersonFor(CalcCamDuration(result));
         uiController.ShowToast(result);
         HandlePostRoundVfx(result);
+        PlayRoundResultSfx(result);
+    }
+
+    private void PlayRoundResultSfx(RoundResult result)
+    {
+        switch (result.type)
+        {
+            case RoundResult.ResultType.Normal:  SoundManager.Instance?.PlaySfx(SfxId.Hit);       break;
+            case RoundResult.ResultType.Blocked: SoundManager.Instance?.PlaySfx(SfxId.Block);     break;
+            case RoundResult.ResultType.Counter: SoundManager.Instance?.PlaySfx(SfxId.Counter);   break;
+            case RoundResult.ResultType.Failed:  SoundManager.Instance?.PlaySfx(SfxId.RoundFail); break;
+        }
+    }
+
+    private SfxId GetCastSfx(HandPose element)
+    {
+        switch (element)
+        {
+            case HandPose.Fire:  return SfxId.CastFire;
+            case HandPose.Water: return SfxId.CastWater;
+            case HandPose.Wind:  return SfxId.CastWind;
+            case HandPose.Land:  return SfxId.CastLand;
+            default:             return SfxId.CastFire;
+        }
     }
 
     private float CalcCamDuration(RoundResult result)
@@ -307,6 +362,10 @@ public class GameManager : MonoBehaviour
 
         playerVfx.StopCharging();
         aiVfx.StopCharging();
+
+        // ── 마법 발사 사운드 ──────────────────────────────────
+        if (playerAttacks) SoundManager.Instance?.PlaySfx(GetCastSfx(player.confirmedElement));
+        if (aiAttacks)     SoundManager.Instance?.PlaySfx(GetCastSfx(ai.confirmedElement));
 
         // ── 쉴드는 투사체보다 먼저 표시 ──────────────────────
         if (playerDefends) playerVfx.ShowShield(player.confirmedElement);
@@ -392,6 +451,8 @@ public class GameManager : MonoBehaviour
         gameOverPanel.SetActive(true);
 
         bool playerWon = _battle.RoundManager.AiHp <= 0;
+        SoundManager.Instance?.StopBgm();
+        SoundManager.Instance?.PlaySfx(playerWon ? SfxId.Victory : SfxId.Defeat);
         resultText.text = playerWon ? "승리!" : "패배...";
 
         // 페르소나 트리거: 라이벌의 마지막 대사
@@ -445,6 +506,11 @@ public class GameManager : MonoBehaviour
     public void StartTutorial()
     {
         _state = GameState.Tutorial;
+        // 수련 모드: FBX 숨기고 라이벌 캐릭터 전부 숨기기, 적 캡슐(허수아비) 표시
+        charPlayer?.SetActive(false);
+        SwapEnemyCharacter("");          // Bug1: 이전 라이벌 캐릭터 겹침 방지
+        charEnemyCapsule?.SetActive(true);
+        SoundManager.Instance?.PlayBgm(BgmId.Battle);  // Bug4: 수련 중 배틀 BGM
         mainMenuPanel.SetActive(false);
         tutorialPanel.SetActive(true);
         gamePanel.SetActive(false);
@@ -463,8 +529,13 @@ public class GameManager : MonoBehaviour
     {
         playerVfx.StopCharging();
         aiVfx.StopCharging();
+        _prevPlayerState = BattleState.Idle;   // Bug3: VFX 상태 초기화 (잔류 이펙트 방지)
+        _prevAiState = BattleState.Idle;
         tutorialUIController.Cleanup(_tutorial);
         _tutorial = null;
+        // 수련 종료: 적 캡슐 숨기고 FBX 복원
+        charEnemyCapsule?.SetActive(false);
+        charPlayer?.SetActive(true);
         ShowMainMenu();
     }
 
@@ -488,16 +559,32 @@ public class GameManager : MonoBehaviour
     
     public void OnExitClicked()         // 메인 메뉴: 종료
     {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
         Application.Quit();
     }
-    
-    public void OnNextClicked()         // 결과: 다음 단계 (지금은 메뉴로)
+
+    public void OnNextClicked()         // 결과: 다음 라이벌로 자동 진행, 마지막이면 메뉴로
     {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
+
+        // rivalOrder 배열에서 현재 라이벌 다음 인덱스 찾기
+        if (_currentRival != null && rivalOrder != null)
+        {
+            int idx = System.Array.IndexOf(rivalOrder, _currentRival);
+            if (idx >= 0 && idx + 1 < rivalOrder.Length)
+            {
+                StartGameWithRival(rivalOrder[idx + 1]);
+                return;
+            }
+        }
+
+        // 마지막 라이벌이거나 rivalOrder 미설정 시 메인 메뉴로
         ShowMainMenu();
     }
-    
+
     public void OnMenuClicked()         // 결과: 메뉴로
     {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
         ShowMainMenu();
     }
     

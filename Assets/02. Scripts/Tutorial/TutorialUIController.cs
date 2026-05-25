@@ -44,6 +44,9 @@ public class TutorialUIController : MonoBehaviour
         _totalMissions = totalMissions;
         _currentMissionIndex = 0;
 
+        // Bug2: 재진입 시 완료 패널 초기화 (이전 수련 완료 패널이 남아있는 경우 숨김)
+        if (completionPanel != null) completionPanel.SetActive(false);
+
         tutorial.OnMissionChanged   += OnMissionChanged;
         tutorial.OnMissionSucceeded += OnMissionSucceeded;
         tutorial.OnMissionFailed    += OnMissionFailed;
@@ -88,6 +91,7 @@ public class TutorialUIController : MonoBehaviour
     private void OnMissionSucceeded(TutorialMissionData data)
     {
         _currentMissionIndex++;
+        SoundManager.Instance?.PlaySfx(Constant.SfxId.ElementConfirmed);
         ShowSuccessToast();
     }
 
