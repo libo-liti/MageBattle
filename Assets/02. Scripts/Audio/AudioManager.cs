@@ -34,9 +34,12 @@ namespace Game.Audio
 
             // 씬이 바뀌어도 살아남게 한다. (메인메뉴 → 게임씬으로 이동해도 볼륨 유지)
             DontDestroyOnLoad(gameObject);
+        }
 
-            // 게임 시작할 때 저장된 볼륨을 불러와서 믹서에 적용
-            // 처음 실행이면 기본값 1(=100%) 을 사용
+        void Start()
+        {
+            // AudioMixer는 첫 프레임 Awake 시점에 아직 초기화되지 않아 SetFloat이 무시됨.
+            // Start로 옮겨야 저장된 볼륨이 게임 시작 시 올바르게 적용된다.
             SetMaster(PlayerPrefs.GetFloat(MASTER, 1f));
             SetBGM   (PlayerPrefs.GetFloat(BGM,    1f));
             SetSFX   (PlayerPrefs.GetFloat(SFX,    1f));

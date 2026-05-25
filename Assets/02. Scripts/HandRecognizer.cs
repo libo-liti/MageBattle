@@ -9,7 +9,8 @@ public class HandRecognizer
     private GameObject _leftHandObj;
     private GameObject _rightHandObj;
 
-    private const int FalseFrameNeeded = 20;
+    public int FalseFrameNeeded = 20;
+    public bool ShowFeedback = true;
 
     private bool _leftStable;
     private int _leftConsecutiveFalse;
@@ -72,8 +73,8 @@ public class HandRecognizer
                 _rightStable = false;
         }
         
-        _leftHandObj.SetActive(_leftStable);
-        _rightHandObj.SetActive(_rightStable);
+        _leftHandObj.SetActive(ShowFeedback && _leftStable);
+        _rightHandObj.SetActive(ShowFeedback && _rightStable);
     }
 
     private void UpdateWristCache()

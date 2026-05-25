@@ -25,6 +25,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private GameObject dojoSelectPanel;
     [SerializeField] private GameObject pauseMenuPanel;
+    [SerializeField] private GameObject settingsPanel;
 
     [Header("Result UI")]
     [SerializeField] private TextMeshProUGUI resultText;
@@ -55,6 +56,7 @@ public class GameManager : MonoBehaviour
     private bool _showDebug = false;
 #endif
     private bool _prevState;
+    private bool _settingsFromPause;
     
     private HandRecognizer _recognizer;
     private BattleManager _battle;
@@ -69,6 +71,7 @@ public class GameManager : MonoBehaviour
         Instance = this;
         
         _recognizer = new HandRecognizer(hand, leftHand, rightHand);
+        ApplySavedHandSettings();
         _battle = new BattleManager();
         SubscribeToBattle();
     }
@@ -84,7 +87,9 @@ public class GameManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (_state == GameState.Playing)
+            if (settingsPanel != null && settingsPanel.activeSelf)
+                HideSettings();
+            else if (_state == GameState.Playing)
                 PauseGame();
             else if (_state == GameState.Pause)
                 ResumeGame();
@@ -236,6 +241,26 @@ public class GameManager : MonoBehaviour
         stage.SetActive(false);
         pauseMenuPanel.SetActive(false);
         tutorialPanel.SetActive(false);
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+    }
+
+    public void ShowSettings()
+    {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
+        _settingsFromPause = (_state == GameState.Pause);
+        if (settingsPanel != null) settingsPanel.SetActive(true);
+        mainMenuPanel.SetActive(false);
+        pauseMenuPanel.SetActive(false);
+    }
+
+    public void HideSettings()
+    {
+        SoundManager.Instance?.PlaySfx(SfxId.UiClick);
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (_settingsFromPause)
+            pauseMenuPanel.SetActive(true);
+        else
+            mainMenuPanel.SetActive(true);
     }
     
     public void ShowDojoSelect()
@@ -488,6 +513,24 @@ public class GameManager : MonoBehaviour
             _battle.RoundManager.OnRoundResolved -= uiController.ShowToast;
             _battle.RoundManager.OnRoundResolved -= OnRoundResolved;
         }
+    }
+
+    public void ApplyHandSensitivity(float normalizedValue)
+    {
+        if (_recognizer == null) return;
+        _recognizer.FalseFrameNeeded = Mathf.RoundToInt(Mathf.Lerp(30f, 5f, normalizedValue));
+    }
+
+    public void ApplyHandFeedback(bool show)
+    {
+        if (_recognizer == null) return;
+        _recognizer.ShowFeedback = show;
+    }
+
+    private void ApplySavedHandSettings()
+    {
+        ApplyHandSensitivity(PlayerPrefs.GetFloat("HandSensitivity", 0.5f));
+        ApplyHandFeedback(PlayerPrefs.GetInt("HandFeedback", 1) == 1);
     }
 
     private void OnDestroy()
