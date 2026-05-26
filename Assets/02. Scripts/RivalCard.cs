@@ -12,6 +12,7 @@ public class RivalCard : MonoBehaviour
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private TextMeshProUGUI difficultyText;
     [SerializeField] private TextMeshProUGUI descriptionText;
+    [SerializeField] private Image portraitImage;
     [SerializeField] private Button challengeButton;
     [SerializeField] private TextMeshProUGUI challengeButtonText;
     [SerializeField] private CanvasGroup canvasGroup;
@@ -31,6 +32,9 @@ public class RivalCard : MonoBehaviour
         difficultyText.text = GetDifficultyStars(rivalData.difficulty);
         descriptionText.text = rivalData.description;
         
+        if (portraitImage != null && rivalData.portrait != null)
+            portraitImage.sprite = rivalData.portrait;
+
         // 잠금 상태 결정
         bool unlocked = IsUnlocked();
         SetLockState(unlocked);
