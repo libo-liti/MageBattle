@@ -518,7 +518,7 @@ public class GameManager : MonoBehaviour
     public void ApplyHandSensitivity(float normalizedValue)
     {
         if (_recognizer == null) return;
-        _recognizer.FalseFrameNeeded = Mathf.RoundToInt(Mathf.Lerp(30f, 5f, normalizedValue));
+        _recognizer.FalseFrameNeeded = Mathf.RoundToInt(Mathf.Lerp(60f, 20f, normalizedValue));
     }
 
     public void ApplyHandFeedback(bool show)
