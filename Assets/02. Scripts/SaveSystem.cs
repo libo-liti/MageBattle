@@ -28,7 +28,9 @@ public static class SaveSystem
             }
             catch (Exception e)
             {
+#if UNITY_EDITOR
                 Debug.LogError($"[Save] Load failed: {e.Message}");
+#endif
                 _cachedData = new SaveData();
             }
         }
@@ -50,7 +52,9 @@ public static class SaveSystem
         }
         catch (Exception e)
         {
+#if UNITY_EDITOR
             Debug.LogError($"[Save] Save failed: {e.Message}");
+#endif
         }
     }
 

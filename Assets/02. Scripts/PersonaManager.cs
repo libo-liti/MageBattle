@@ -176,7 +176,9 @@ public class PersonaManager : MonoBehaviour
         string path = Path.Combine(Application.streamingAssetsPath, "Taunts", fileName);
         if (!File.Exists(path))
         {
+#if UNITY_EDITOR
             Debug.LogWarning($"[PersonaManager] Taunt 파일을 찾을 수 없습니다: {path}");
+#endif
             return null;
         }
         try
@@ -187,7 +189,9 @@ public class PersonaManager : MonoBehaviour
         }
         catch (Exception e)
         {
+#if UNITY_EDITOR
             Debug.LogError($"[PersonaManager] JSON 파싱 실패 ({fileName}): {e.Message}");
+#endif
             return null;
         }
     }
