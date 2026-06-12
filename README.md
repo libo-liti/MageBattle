@@ -6,7 +6,7 @@
 
 ![결투 장면](docs/gameplay.gif)
 
-📔 **[프로젝트 상세 문서 (Notion)](노션_공개_링크)** — 플레이 영상, 시스템 설계, 문제 해결 과정 전체
+📔 **[프로젝트 상세 문서 (Notion)](https://familiar-manx-10d.notion.site/notion)** — 플레이 영상, 시스템 설계, 문제 해결 과정 전체
 
 ---
 
@@ -36,7 +36,7 @@
 - **해결**: **비대칭 디바운싱** — 인식(true)은 즉시 반영해 반응성 확보, 소실(false)은 20프레임 연속 확인 후 처리해 안정성 확보
 - **근거**: 임계값 20프레임은 직접 테스트로 결정 — 10프레임은 깜빡임이 남고, 30프레임은 안정적이지만 과함. "켜질 때 빠르게, 꺼질 때 신중하게"
 
-📄 코드: [`HandRecognizer.cs`](Assets/02. Scripts/Hand/HandRecognizer.cs)
+📄 코드: [`HandRecognizer.cs`](Assets/02.%20Scripts/Hand/HandRecognizer.cs)
 
 ## 기술 선택 근거
 
