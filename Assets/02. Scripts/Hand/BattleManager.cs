@@ -3,38 +3,36 @@ using static Constant;
 public class BattleManager
 {
     private const float REQUIRED_HOLD = 1.0f;
-    private const float TOTAL_DURATION = 10.0f;
     
     private CasterContext _player = new CasterContext();
     private AICaster _ai = new AICaster();
     private RoundManager _roundManager;
-    private BattleState _prevPlayerState = BattleState.Idle;
 
     public CasterContext Player => _player;
     public AICaster AI => _ai;
     public RoundManager RoundManager => _roundManager;
 
-    public BattleManager()
+    public BattleManager(RivalData rival = null)
     {
+        _player = new CasterContext();
+        _ai = new AICaster();
         _roundManager = new RoundManager(_player, _ai);
+        
+        if(rival != null)
+            _ai.SetRivalData(rival);
+        
+        _roundManager.StartRound();
     }
 
     public void Update(HandPose pose, float deltaTime)
     {
         UpdateCaster(_player, pose, deltaTime);
         
-        if (_prevPlayerState == BattleState.Idle && _player.state == BattleState.ElementCharging)
-        {
-            _ai.StartRound();
-            _roundManager.StartRound();
-        }
-        _prevPlayerState = _player.state;
-        
         _ai.Update(deltaTime);
-        _roundManager.Update();
+        _roundManager.Update(deltaTime);
     }
     
-    private void UpdateCaster(CasterContext ctx, HandPose pose, float deltaTime)
+    public static void UpdateCaster(CasterContext ctx, HandPose pose, float deltaTime)
     {
         switch (ctx.state)
         {
@@ -49,16 +47,7 @@ public class BattleManager
                 break;
             case BattleState.ElementCharging:
                 ctx.totalTime += deltaTime;
-
-                if (ctx.totalTime >= TOTAL_DURATION)
-                {
-                    ctx.state = BattleState.Idle;
-                    ctx.holdTime = 0f;
-                    ctx.totalTime = 0f;
-                    ctx.chargingElement = HandPose.Unknown;
-                    break;
-                }
-
+                
                 if (IsElement(pose))
                 {
                     if (pose == ctx.chargingElement)
@@ -81,16 +70,6 @@ public class BattleManager
                 break;
             case BattleState.FormCharging:
                 ctx.totalTime += deltaTime;
-
-                if (ctx.totalTime >= TOTAL_DURATION)
-                {
-                    ctx.state = BattleState.Idle;
-                    ctx.chargingElement = HandPose.Unknown;
-                    ctx.chargingForm = HandPose.Unknown;
-                    ctx.holdTime = 0f;
-                    ctx.totalTime = 0f;
-                    break;
-                }
 
                 if (IsElement(pose) && pose != ctx.confirmedElement)
                 {
@@ -136,12 +115,12 @@ public class BattleManager
         }
     }
     
-    private bool IsElement(HandPose pose)
+    public static bool IsElement(HandPose pose)
     {
         return pose == HandPose.Fire || pose == HandPose.Water || pose == HandPose.Wind || pose == HandPose.Land;
     }
 
-    private bool IsForm(HandPose pose)
+    public static bool IsForm(HandPose pose)
     {
         return pose == HandPose.Attack || pose == HandPose.Defense || pose == HandPose.Special;
     }

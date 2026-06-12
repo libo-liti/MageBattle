@@ -9,7 +9,8 @@ public class HandRecognizer
     private GameObject _leftHandObj;
     private GameObject _rightHandObj;
 
-    private const int FalseFrameNeeded = 20;
+    public int FalseFrameNeeded = 20;
+    public bool ShowFeedback = true;
 
     private bool _leftStable;
     private int _leftConsecutiveFalse;
@@ -28,6 +29,11 @@ public class HandRecognizer
     public Vector3 LeftWrist => _leftWristCached;
     public Vector3 RightWrist => _rightWristCached;
     public float WristDistance => _wristDistance;
+
+    // [포트폴리오용 추가] 시각화 컴포넌트에 관절 전체 좌표를 노출
+    // (Pose 폴더에 직접 의존하지 않고 HandRecognizer만 바라보도록 패스스루)
+    public IReadOnlyList<Vector3> LeftHandJoints => _hand.GetLeftHandFilteredPositions();
+    public IReadOnlyList<Vector3> RightHandJoints => _hand.GetRightHandFilteredPositions();
 
     public HandRecognizer(HandVisualizer hand, GameObject leftObj, GameObject rightObj)
     {
@@ -72,8 +78,8 @@ public class HandRecognizer
                 _rightStable = false;
         }
         
-        _leftHandObj.SetActive(_leftStable);
-        _rightHandObj.SetActive(_rightStable);
+        _leftHandObj.SetActive(ShowFeedback && _leftStable);
+        _rightHandObj.SetActive(ShowFeedback && _rightStable);
     }
 
     private void UpdateWristCache()
@@ -106,25 +112,52 @@ public class HandRecognizer
         FingerStates right = GetFingerStates(rightPos);
         FingerTouches touches = GetFingerTouches(leftPos, rightPos);
 
+        // ── Land: 주먹 마주보고 닿기 ─────────────────────────────────────
+        // sameLeftRightPose 게이트보다 먼저 확인해야 함.
+        // 주먹을 마주보게 들면 카메라 앵글이 좌우 비대칭해져서 MediaPipe가
+        // 두 손의 손가락 상태를 다르게 인식 → sameLeftRightPose = false 됨.
+        // 그러면 기존 구조에서는 Land 체크에 절대 도달 못함.
+
+        // 손목 거리 (너클 뒤쪽이라 약간 더 멀게 나옴)
+        float wristDist = Vector2.Distance(
+            new Vector2(leftPos[(int)HandJoint.Wrist].x, leftPos[(int)HandJoint.Wrist].y),
+            new Vector2(rightPos[(int)HandJoint.Wrist].x, rightPos[(int)HandJoint.Wrist].y)
+        );
+        // 너클(IndexMcp) 거리: 주먹을 마주보고 닿힐 때 가장 가까워지는 지점
+        float knuckleDist = Vector2.Distance(
+            new Vector2(leftPos[(int)HandJoint.IndexMcp].x, leftPos[(int)HandJoint.IndexMcp].y),
+            new Vector2(rightPos[(int)HandJoint.IndexMcp].x, rightPos[(int)HandJoint.IndexMcp].y)
+        );
+
+        // mostlyFolded: 손 겹침 오클루전으로 ring/pinky가 오인식돼도
+        // index·middle은 상대적으로 신뢰할 수 있음
+        bool leftMostlyFolded  = !left.index  && !left.middle;
+        bool rightMostlyFolded = !right.index && !right.middle;
+        bool fistsTouching     = wristDist < 0.30f || knuckleDist < 0.20f;
+
+        // 조건 A: 엄밀 판정 — 손 약간 떨어진 경우, IndexPip 닿음으로 확인
+        if (left.AllFolded && right.AllFolded && touches.OnlyIndexPip) return HandPose.Land;
+        // 조건 B: 너그러운 판정 — 주먹 맞닿을 때 오클루전 대응
+        if (leftMostlyFolded && rightMostlyFolded && fistsTouching)    return HandPose.Land;
+
+        // ── 나머지 포즈: 양손 대칭 필요 ────────────────────────────────
         bool sameLeftRightPose = (left.index == right.index)
                                  && (left.middle == right.middle)
                                  && (left.ring == right.ring)
                                  && (left.pinky == right.pinky);
-
         if (!sameLeftRightPose) return HandPose.Unknown;
 
-        if (left.AllExtended && touches.AllTouches) return HandPose.Wind;
-        if (left.AllFolded && touches.OnlyIndexPip) return HandPose.Land;
+        if (left.AllExtended && touches.AllTouches)  return HandPose.Wind;
         if (left.AllExtended && touches.OnlyIndexTip) return HandPose.Water;
-        if (left.OnlyIndex && touches.OnlyIndexTip) return HandPose.Fire;
+        if (left.OnlyIndex   && touches.OnlyIndexTip) return HandPose.Fire;
 
         if (touches.NoneTouched)
         {
-            if (left.AllFolded) return HandPose.Attack;
-            if (left.AllExtended) return HandPose.Defense;
+            if (left.AllFolded)    return HandPose.Attack;
+            if (left.AllExtended)  return HandPose.Defense;
             if (left.ThreeFingers) return HandPose.Special;
         }
-        
+
         return HandPose.Unknown;
     }
     private bool IsFingerExtended(IReadOnlyList<Vector3> handPos, int tipJoint, int mcpJoint)

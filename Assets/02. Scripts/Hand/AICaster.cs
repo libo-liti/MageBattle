@@ -10,6 +10,13 @@ public class AICaster
     private HandPose _plannedForm;
     private bool _roundActive;
 
+    private float _aiTimeMin = 4f;
+    private float _aiTimeMax = 7f;
+
+    private float _attackWeight = 1f;
+    private float _defenseWeight = 1f;
+    private float _specialWeight = 1f;
+
     public AICaster()
     {
         ctx = new CasterContext();
@@ -20,13 +27,31 @@ public class AICaster
         _plannedElement = RandomElement();
         _plannedForm = RandomForm();
 
-        _plannedDuration = Random.Range(4f, 7f);
+        _plannedDuration = Random.Range(_aiTimeMin, _aiTimeMax);
 
         ctx.state = BattleState.ElementCharging;
         ctx.chargingElement = _plannedElement;
         ctx.totalTime = 0;
 
         _roundActive = true;
+    }
+
+    public void StartRound(HandPose element, HandPose form, float duration)
+    {
+        _plannedElement = element;
+        _plannedForm = form;
+        _plannedDuration = duration;
+
+        ctx.state = BattleState.ElementCharging;
+        ctx.chargingElement = _plannedElement;
+        ctx.totalTime = 0;
+        _roundActive = true;
+    }
+
+    public void StartIdleRound()
+    {
+        _roundActive = false;
+        ctx.state = BattleState.Idle;
     }
 
     public void Update(float deltaTime)
@@ -50,6 +75,15 @@ public class AICaster
         }
     }
 
+    public void SetRivalData(RivalData rival)
+    {
+        _aiTimeMin = rival.aiTimeMin;
+        _aiTimeMax = rival.aiTimeMax;
+        _attackWeight = rival.attackWeight;
+        _defenseWeight = rival.defenseWeight;
+        _specialWeight = rival.specialWeight;
+    }
+
     private HandPose RandomElement()
     {
         HandPose[] elements = { HandPose.Fire, HandPose.Water, HandPose.Wind, HandPose.Land };
@@ -58,8 +92,17 @@ public class AICaster
 
     private HandPose RandomForm()
     {
-        HandPose[] forms = { HandPose.Attack, HandPose.Defense, HandPose.Special };
-        return forms[Random.Range(0, 3)];
+        float total = _attackWeight + _defenseWeight + _specialWeight;
+        if (total <= 0f)
+        {
+            HandPose[] forms = { HandPose.Attack, HandPose.Defense, HandPose.Special };
+            return forms[Random.Range(0, 3)];
+        }
+
+        float roll = Random.value * total;
+        if (roll < _attackWeight) return HandPose.Attack;
+        if (roll < _attackWeight + _defenseWeight) return HandPose.Defense;
+        return HandPose.Special;
     }
 
     public void Reset()
