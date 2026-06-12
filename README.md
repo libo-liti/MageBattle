@@ -6,7 +6,7 @@
 
 ![결투 장면](docs/gameplay.gif)
 
-📔 **[프로젝트 상세 문서 (Notion)](https://familiar-manx-10d.notion.site/notion)** — 플레이 영상, 시스템 설계, 문제 해결 과정 전체
+📔 **[프로젝트 상세 문서 (Notion)](https://familiar-manx-10d.notion.site/3741a1efbfe381d08d2ed5a112fc62d5)** — 플레이 영상, 시스템 설계, 문제 해결 과정 전체
 
 ---
 
