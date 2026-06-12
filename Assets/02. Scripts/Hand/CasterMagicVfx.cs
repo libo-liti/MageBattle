@@ -234,6 +234,7 @@ public class CasterMagicVfx : MonoBehaviour
             : Quaternion.identity;
 
         _activeShield = Instantiate(prefab, pos, rot);
+        _activeShield.transform.localScale = Vector3.one * 1.4f;
         Destroy(_activeShield, projectileFlightTime + 0.3f);
     }
 

@@ -30,6 +30,11 @@ public class HandRecognizer
     public Vector3 RightWrist => _rightWristCached;
     public float WristDistance => _wristDistance;
 
+    // [포트폴리오용 추가] 시각화 컴포넌트에 관절 전체 좌표를 노출
+    // (Pose 폴더에 직접 의존하지 않고 HandRecognizer만 바라보도록 패스스루)
+    public IReadOnlyList<Vector3> LeftHandJoints => _hand.GetLeftHandFilteredPositions();
+    public IReadOnlyList<Vector3> RightHandJoints => _hand.GetRightHandFilteredPositions();
+
     public HandRecognizer(HandVisualizer hand, GameObject leftObj, GameObject rightObj)
     {
         _hand = hand;

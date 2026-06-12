@@ -63,6 +63,9 @@ public class GameManager : MonoBehaviour
     private TutorialManager _tutorial;
     private GameState _state = GameState.MainMenu;
 
+    // [포트폴리오용 추가] 손 스켈레톤 오버레이가 '인게임 중'에만 표시되도록 상태 노출
+    public bool IsInGame => _state == GameState.Playing || _state == GameState.Tutorial;
+
     private BattleState _prevPlayerState = BattleState.Idle;
     private BattleState _prevAiState = BattleState.Idle;
     
@@ -71,6 +74,11 @@ public class GameManager : MonoBehaviour
         Instance = this;
         
         _recognizer = new HandRecognizer(hand, leftHand, rightHand);
+
+        // [포트폴리오용 추가] 손 스켈레톤 오버레이에 recognizer 자동 주입
+        var skeletonOverlay = FindObjectOfType<HandSkeletonOverlay>(true);
+        if (skeletonOverlay != null)
+            skeletonOverlay.SetRecognizer(_recognizer);
         ApplySavedHandSettings();
         _battle = new BattleManager();
         SubscribeToBattle();
@@ -518,7 +526,7 @@ public class GameManager : MonoBehaviour
     public void ApplyHandSensitivity(float normalizedValue)
     {
         if (_recognizer == null) return;
-        _recognizer.FalseFrameNeeded = Mathf.RoundToInt(Mathf.Lerp(30f, 5f, normalizedValue));
+        _recognizer.FalseFrameNeeded = Mathf.RoundToInt(Mathf.Lerp(60f, 20f, normalizedValue));
     }
 
     public void ApplyHandFeedback(bool show)
